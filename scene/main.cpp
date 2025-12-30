@@ -12,6 +12,7 @@ static int windowWidth = 1024;
 static int windowHeight = 768;
 
 static void key_callback(GLFWwindow *window, int key, int scancode, int action, int mode);
+static void cursor_callback(GLFWwindow* window, double xpos, double ypos);
 
 // Camera
 static glm::vec3 eye_center(150.0f, 150.0f, 150.0f);
@@ -21,6 +22,14 @@ static glm::vec3 up(0.0f, 1.0f, 0.0f);
 static float FoV = 60.0f;
 static float zNear = 1.0f;
 static float zFar = 1000.0f;
+
+// Mouse movement
+static float yaw = -90.0f;
+static float pitch = 0.0f;
+static bool firstMouse = true;
+static float lastX = 512.0f;
+static float lastY = 384.0f;
+static float sensitivity = 0.1f;
 
 // Add this struct definition
 struct AxisXYZ {
@@ -141,6 +150,7 @@ int main(void)
     }
     glfwMakeContextCurrent(window);
     glfwSetKeyCallback(window, key_callback);
+	glfwSetCursorPosCallback(window, cursor_callback);
 
     // Load OpenGL
     int version = gladLoadGL(glfwGetProcAddress);
@@ -229,4 +239,36 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
     	glfwSetWindowShouldClose(window, GL_TRUE);
     }
+}
+
+static void cursor_callback(GLFWwindow* window, double xpos, double ypos) {
+	if (firstMouse) {
+		lastX = xpos;
+		lastY = ypos;
+		firstMouse = false;
+	}
+
+	// Offset like lab3 with sensitivity
+	float xoffset = xpos - lastX;
+	float yoffset = lastY - ypos;
+	lastX = xpos;
+	lastY = ypos;
+
+	xoffset *= sensitivity;
+	yoffset *= sensitivity;
+
+	yaw += xoffset;
+	pitch += yoffset;
+
+	// Constrain pitch
+	if (pitch > 89.0f) pitch = 89.0f;
+	if (pitch < -89.0f) pitch = -89.0f;
+
+	// Update lookat
+	glm::vec3 front;
+	front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+	front.y = sin(glm::radians(pitch));
+	front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+
+	lookat = eye_center + glm::normalize(front);
 }
