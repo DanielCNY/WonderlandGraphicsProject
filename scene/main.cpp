@@ -170,6 +170,7 @@ int main(void)
 
     // Camera setup
     glm::mat4 projectionMatrix = glm::perspective(glm::radians(FoV), (float)windowWidth / windowHeight, zNear, zFar);
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     // Main loop
     while (!glfwWindowShouldClose(window))
@@ -211,13 +212,13 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
 
 	// Move left/right: a/d
 	if (key == GLFW_KEY_A && (action == GLFW_REPEAT || action == GLFW_PRESS)) {
-		
+
 		glm::vec3 move = rightOfDirection * speed;
 		eye_center -= move;
 		lookat -= move;
 	}
 	if (key == GLFW_KEY_D && (action == GLFW_REPEAT || action == GLFW_PRESS)) {
-		
+
 		glm::vec3 move = rightOfDirection * speed;
 		eye_center += move;
 		lookat += move;
@@ -242,25 +243,38 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
 }
 
 static void cursor_callback(GLFWwindow* window, double xpos, double ypos) {
-	if (firstMouse) {
-		lastX = xpos;
-		lastY = ypos;
-		firstMouse = false;
-	}
+	static float lastX = 0, lastY = 0;
 
-	// Offset like lab3 with sensitivity
+	// Handle first input
+	if (firstMouse) {
+		int width, height;
+		glfwGetWindowSize(window, &width, &height);
+		lastX = width / 2.0f;
+		lastY = height / 2.0f;
+		glfwSetCursorPos(window, lastX, lastY);
+		firstMouse = false;
+		return;
+	}
+	
 	float xoffset = xpos - lastX;
 	float yoffset = lastY - ypos;
-	lastX = xpos;
-	lastY = ypos;
 
+	// Reset cursor to center
+	int width, height;
+	glfwGetWindowSize(window, &width, &height);
+	float centerX = width / 2.0f;
+	float centerY = height / 2.0f;
+	glfwSetCursorPos(window, centerX, centerY);
+	lastX = centerX;
+	lastY = centerY;
+	
 	xoffset *= sensitivity;
 	yoffset *= sensitivity;
 
 	yaw += xoffset;
 	pitch += yoffset;
 
-	// Constrain pitch
+	// Constrain Pitch
 	if (pitch > 89.0f) pitch = 89.0f;
 	if (pitch < -89.0f) pitch = -89.0f;
 
@@ -269,6 +283,5 @@ static void cursor_callback(GLFWwindow* window, double xpos, double ypos) {
 	front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
 	front.y = sin(glm::radians(pitch));
 	front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
-
 	lookat = eye_center + glm::normalize(front);
 }
