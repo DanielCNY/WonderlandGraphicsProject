@@ -51,10 +51,3 @@ GLuint TextureManager::loadTextureFromFile(const std::string& path) {
 
     return textureID;
 }
-
-void TextureManager::cleanup() {
-    for (auto& pair : textures) {
-        glDeleteTextures(1, &pair.second);
-    }
-    textures.clear();
-}

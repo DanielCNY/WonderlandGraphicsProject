@@ -6,27 +6,21 @@
 
 class GroundPlane {
 public:
-    GroundPlane();
-    ~GroundPlane();
-
     void initialize();
-    void render(const glm::mat4& viewProjectionMatrix);
+    void render(glm::mat4 cameraMatrix);
     void cleanup();
 
 private:
-    GLuint vertexArrayID;
-    GLuint vertexBufferID;
-    GLuint indexBufferID;
-    GLuint colorBufferID;
-    GLuint uvBufferID;
-    GLuint textureID;
+    GLuint vertexArrayID = 0;
+    GLuint vertexBufferID = 0;
+    GLuint indexBufferID = 0;
+    GLuint colorBufferID = 0;
+    GLuint uvBufferID = 0;
+    GLuint textureID = 0;
 
-    GLuint mvpMatrixID;
-    GLuint textureSamplerID;
-    GLuint programID;
-
-    static const int NUM_VERTICES = 4;
-    static const int NUM_INDICES = 6;
+    GLuint mvpMatrixID = 0;
+    GLuint textureSamplerID = 0;
+    GLuint programID = 0;
 };
 
 #endif

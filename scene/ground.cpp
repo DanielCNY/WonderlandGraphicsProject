@@ -1,23 +1,13 @@
 #include <ground.h>
 #include <texture_manager.h>
 #include <./render/shader.h>
-#include <iostream>
-
-GroundPlane::GroundPlane() :
-    vertexArrayID(0), vertexBufferID(0), indexBufferID(0),
-    colorBufferID(0), uvBufferID(0), textureID(0),
-    mvpMatrixID(0), textureSamplerID(0), programID(0) {}
-
-GroundPlane::~GroundPlane() {
-    cleanup();
-}
 
 void GroundPlane::initialize() {
     GLfloat vertex_buffer_data[12] = {
         -250.0f, 0.0f, -250.0f,
-        -250.0f, 0.0f,  250.0f,
-         250.0f, 0.0f,  250.0f,
-         250.0f, 0.0f, -250.0f,
+        -250.0f, 0.0f, 250.0f,
+        250.0f, 0.0f, 250.0f,
+        250.0f, 0.0f, -250.0f,
     };
 
     GLfloat color_buffer_data[12] = {
@@ -27,16 +17,16 @@ void GroundPlane::initialize() {
         0.8f, 1.0f, 0.7f,
     };
 
+    GLuint index_buffer_data[6] = {
+        0, 1, 2,
+        0, 2, 3,
+    };
+
     GLfloat uv_buffer_data[8] = {
         0.0f, 0.0f,
         0.0f, 2.0f,
         2.0f, 2.0f,
         2.0f, 0.0f,
-    };
-
-    GLuint index_buffer_data[6] = {
-        0, 1, 2,
-        0, 2, 3,
     };
 
     glGenVertexArrays(1, &vertexArrayID);
@@ -67,7 +57,7 @@ void GroundPlane::initialize() {
     textureSamplerID = glGetUniformLocation(programID,"textureSampler");
 }
 
-void GroundPlane::render(const glm::mat4& cameraMatrix) {
+void GroundPlane::render(glm::mat4 cameraMatrix) {
     glUseProgram(programID);
 
     glEnableVertexAttribArray(0);
@@ -100,10 +90,10 @@ void GroundPlane::render(const glm::mat4& cameraMatrix) {
 }
 
 void GroundPlane::cleanup() {
-    glDeleteBuffers(1, &vertexBufferID);
-    glDeleteBuffers(1, &colorBufferID);
-    glDeleteBuffers(1, &indexBufferID);
-    glDeleteVertexArrays(1, &vertexArrayID);
-    glDeleteBuffers(1, &uvBufferID);
-    glDeleteProgram(programID);
+    if (vertexBufferID) glDeleteBuffers(1, &vertexBufferID);
+    if (colorBufferID) glDeleteBuffers(1, &colorBufferID);
+    if (indexBufferID) glDeleteBuffers(1, &indexBufferID);
+    if (vertexArrayID) glDeleteVertexArrays(1, &vertexArrayID);
+    if (uvBufferID) glDeleteBuffers(1, &uvBufferID);
+    if (programID) glDeleteProgram(programID);
 }

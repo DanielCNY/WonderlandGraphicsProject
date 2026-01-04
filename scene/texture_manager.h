@@ -9,15 +9,10 @@ class TextureManager {
 public:
     static TextureManager& getInstance();
 
-    TextureManager(const TextureManager&) = delete;
-    TextureManager& operator=(const TextureManager&) = delete;
-
     GLuint getTexture(const std::string& path);
-    void cleanup();
 
 private:
     TextureManager() = default;
-    ~TextureManager() = default;
 
     GLuint loadTextureFromFile(const std::string& path);
 
