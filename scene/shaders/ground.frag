@@ -3,6 +3,8 @@
 in vec2 UV;
 out vec3 color;
 
+uniform sampler2D textureSampler;
+
 void main() {
-    color = vec3(0.9, 0.9, 0.9);
+     color = texture(textureSampler, UV).rgb;
 }

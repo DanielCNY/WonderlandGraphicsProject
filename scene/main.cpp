@@ -5,6 +5,9 @@
 
 #include <./render/shader.h>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb/stb_image.h>
+
 #include <iostream>
 
 static GLFWwindow *window;
@@ -31,6 +34,29 @@ static float lastX = 512.0f;
 static float lastY = 384.0f;
 static float sensitivity = 0.1f;
 
+static GLuint LoadTextureTileBox(const char *texture_file_path) {
+	int w, h, channels;
+	uint8_t* img = stbi_load(texture_file_path, &w, &h, &channels, 3);
+	GLuint texture;
+	glGenTextures(1, &texture);
+	glBindTexture(GL_TEXTURE_2D, texture);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	if (img) {
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, img);
+		glGenerateMipmap(GL_TEXTURE_2D);
+	} else {
+		std::cout << "Failed to load texture " << texture_file_path << std::endl;
+	}
+	stbi_image_free(img);
+
+	return texture;
+}
+
 struct GroundPlane {
 	GLfloat vertex_buffer_data[12] = {
 		-250.0f, 0.0f, -250.0f,
@@ -40,10 +66,11 @@ struct GroundPlane {
 	};
 
 	GLfloat color_buffer_data[12] = {
-		1.0f, 0.0f, 0.0f,
-		1.0f, 1.0f, 0.0f,
-		1.0f, 0.0f, 1.0f,
-		1.0f, 1.0f, 1.0f,
+		// Slight changes for colour effects
+		0.8f, 1.0f, 0.7f,
+		1.0f, 1.0f, 0.9f,
+		0.9f, 0.95f, 0.8f,
+		0.8f, 1.0f, 0.7f,
 	};
 
 	GLuint index_buffer_data[6] = {
@@ -52,10 +79,10 @@ struct GroundPlane {
 	};
 
 	GLfloat uv_buffer_data[8] = {
-		0.0f, 1.0f,
-		1.0f, 1.0f,
-		1.0f, 0.0f,
 		0.0f, 0.0f,
+		0.0f, 2.0f,
+		2.0f, 2.0f,
+		2.0f, 0.0f,
 	};
 
 	GLuint vertexArrayID;
@@ -91,8 +118,8 @@ struct GroundPlane {
 
 		programID = LoadShadersFromFile("../scene/shaders/ground.vert", "../scene/shaders/ground.frag");
 		mvpMatrixID = glGetUniformLocation(programID, "MVP");
-		//textureID = LoadTextureTileBox("../scene/textures/ground.png");
-		//textureSamplerID = glGetUniformLocation(programID,"textureSampler");
+		textureID = LoadTextureTileBox("../scene/textures/snowy_ground.jpg");
+		textureSamplerID = glGetUniformLocation(programID,"textureSampler");
 	}
 
 	void render(glm::mat4 cameraMatrix) {
@@ -112,6 +139,10 @@ struct GroundPlane {
 
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBufferID);
 
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, textureID);
+		glUniform1i(textureSamplerID, 0);
+
         glm::mat4 modelMatrix = glm::mat4();
 		glm::mat4 mvp = cameraMatrix * modelMatrix;
 		glUniformMatrix4fv(mvpMatrixID, 1, GL_FALSE, &mvp[0][0]);
@@ -126,7 +157,7 @@ struct GroundPlane {
 		glDeleteBuffers(1, &indexBufferID);
 		glDeleteVertexArrays(1, &vertexArrayID);
 		glDeleteBuffers(1, &uvBufferID);
-		//glDeleteTextures(1, &textureID);
+		glDeleteTextures(1, &textureID);
 		glDeleteProgram(programID);
 	}
 };
