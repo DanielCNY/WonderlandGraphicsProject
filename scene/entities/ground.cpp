@@ -1,20 +1,20 @@
-#include <ground.h>
-#include <texture_manager.h>
-#include <./render/shader.h>
+#include "ground.h"
+#include "../utils/texture_manager.h"
+#include "../render/shader.h"
 
 void GroundPlane::initialize() {
     GLfloat vertex_buffer_data[12] = {
-        -250.0f, 0.0f, -250.0f,
-        -250.0f, 0.0f, 250.0f,
-        250.0f, 0.0f, 250.0f,
-        250.0f, 0.0f, -250.0f,
+        -150.0f, 0.0f, -150.0f,
+        -150.0f, 0.0f, 150.0f,
+        150.0f, 0.0f, 150.0f,
+        150.0f, 0.0f, -150.0f,
     };
 
     GLfloat color_buffer_data[12] = {
-        0.8f, 1.0f, 0.7f,
-        1.0f, 1.0f, 0.9f,
-        0.9f, 0.95f, 0.8f,
-        0.8f, 1.0f, 0.7f,
+        1,1,1,
+        1,1,1,
+        1,1,1,
+        1,1,1
     };
 
     GLuint index_buffer_data[6] = {
@@ -24,9 +24,9 @@ void GroundPlane::initialize() {
 
     GLfloat uv_buffer_data[8] = {
         0.0f, 0.0f,
-        0.0f, 2.0f,
-        2.0f, 2.0f,
-        2.0f, 0.0f,
+        0.0f, 1.0f,
+        1.0f, 1.0f,
+        1.0f, 0.0f,
     };
 
     glGenVertexArrays(1, &vertexArrayID);

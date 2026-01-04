@@ -6,9 +6,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb/stb_image.h>
 
-#include <./render/shader.h>
-#include <texture_manager.h>
-#include <ground.h>
+#include "utils/world_manager.h"
 
 #include <iostream>
 
@@ -20,13 +18,13 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
 static void cursor_callback(GLFWwindow* window, double xpos, double ypos);
 
 // Camera
-static glm::vec3 eye_center(150.0f, 150.0f, 150.0f);
+static glm::vec3 eye_center(0.0f, 150.0f, 0.0f);
 static glm::vec3 lookat(0.0f, 0.0f, 0.0f);
 static glm::vec3 up(0.0f, 1.0f, 0.0f);
 
 static float FoV = 60.0f;
 static float zNear = 1.0f;
-static float zFar = 2000.0f;
+static float zFar = 3000.0f;
 
 // Mouse movement
 static float yaw = -90.0f;
@@ -35,6 +33,8 @@ static bool firstMouse = true;
 static float lastX = 512.0f;
 static float lastY = 384.0f;
 static float sensitivity = 0.1f;
+
+WorldManager worldManager;
 
 int main(void)
 {
@@ -74,11 +74,6 @@ int main(void)
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
 
-	TextureManager& textureManager = TextureManager::getInstance();
-
-	GroundPlane ground;
-	ground.initialize();
-
     // Camera setup
     glm::mat4 projectionMatrix = glm::perspective(glm::radians(FoV), (float)windowWidth / windowHeight, zNear, zFar);
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -92,7 +87,8 @@ int main(void)
         glm::mat4 viewMatrix = glm::lookAt(eye_center, lookat, up);
         glm::mat4 vp = projectionMatrix * viewMatrix;
 
-    	ground.render(vp);
+    	worldManager.update(eye_center);
+    	worldManager.render(vp);
 
         // Swap buffers
         glfwSwapBuffers(window);
