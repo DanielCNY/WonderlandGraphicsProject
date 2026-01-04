@@ -21,7 +21,7 @@ static glm::vec3 up(0.0f, 1.0f, 0.0f);
 
 static float FoV = 60.0f;
 static float zNear = 1.0f;
-static float zFar = 1000.0f;
+static float zFar = 2000.0f;
 
 // Mouse movement
 static float yaw = -90.0f;
@@ -31,71 +31,68 @@ static float lastX = 512.0f;
 static float lastY = 384.0f;
 static float sensitivity = 0.1f;
 
-// Add this struct definition
-struct AxisXYZ {
-    // A structure for visualizing the global 3D coordinate system
-
-	GLfloat vertex_buffer_data[18] = {
-		// X axis
-		0.0, 0.0f, 0.0f,
-		100.0f, 0.0f, 0.0f,
-
-		// Y axis
-		0.0f, 0.0f, 0.0f,
-		0.0f, 100.0f, 0.0f,
-
-		// Z axis
-		0.0f, 0.0f, 0.0f,
-		0.0f, 0.0f, 100.0f,
+struct GroundPlane {
+	GLfloat vertex_buffer_data[12] = {
+		-250.0f, 0.0f, -250.0f,
+		-250.0f, 0.0f, 250.0f,
+		250.0f, 0.0f, 250.0f,
+		250.0f, 0.0f, -250.0f,
 	};
 
-	GLfloat color_buffer_data[18] = {
-		// X, red
+	GLfloat color_buffer_data[12] = {
 		1.0f, 0.0f, 0.0f,
-		1.0f, 0.0f, 0.0f,
-
-		// Y, green
-		0.0f, 1.0f, 0.0f,
-		0.0f, 1.0f, 0.0f,
-
-		// Z, blue
-		0.0f, 0.0f, 1.0f,
-		0.0f, 0.0f, 1.0f,
+		1.0f, 1.0f, 0.0f,
+		1.0f, 0.0f, 1.0f,
+		1.0f, 1.0f, 1.0f,
 	};
 
-	// OpenGL buffers
+	GLuint index_buffer_data[6] = {
+		0, 1, 2,
+		0, 2, 3,
+	};
+
+	GLfloat uv_buffer_data[8] = {
+		0.0f, 1.0f,
+		1.0f, 1.0f,
+		1.0f, 0.0f,
+		0.0f, 0.0f,
+	};
+
 	GLuint vertexArrayID;
 	GLuint vertexBufferID;
+	GLuint indexBufferID;
 	GLuint colorBufferID;
+	GLuint uvBufferID;
+	GLuint textureID;
 
-	// Shader variable IDs
 	GLuint mvpMatrixID;
+	GLuint textureSamplerID;
 	GLuint programID;
 
 	void initialize() {
-		// Create a vertex array object
 		glGenVertexArrays(1, &vertexArrayID);
 		glBindVertexArray(vertexArrayID);
 
-		// Create a vertex buffer object to store the vertex data
 		glGenBuffers(1, &vertexBufferID);
 		glBindBuffer(GL_ARRAY_BUFFER, vertexBufferID);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_buffer_data), vertex_buffer_data, GL_STATIC_DRAW);
 
-		// Create a vertex buffer object to store the color data
 		glGenBuffers(1, &colorBufferID);
 		glBindBuffer(GL_ARRAY_BUFFER, colorBufferID);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(color_buffer_data), color_buffer_data, GL_STATIC_DRAW);
 
-		// Create and compile our GLSL program from the shaders
-		programID = LoadShadersFromFile("../scene/shaders/simple.vert", "../scene/shaders/simple.frag");
-		if (programID == 0)
-		{
-			std::cerr << "Failed to load shaders." << std::endl;
-		}
+		glGenBuffers(1, &uvBufferID);
+		glBindBuffer(GL_ARRAY_BUFFER, uvBufferID);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(uv_buffer_data), uv_buffer_data, GL_STATIC_DRAW);
 
-		// Get a handle for our "MVP" uniform
+		glGenBuffers(1, &indexBufferID);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBufferID);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(index_buffer_data), index_buffer_data, GL_STATIC_DRAW);
+
+		programID = LoadShadersFromFile("../scene/shaders/ground.vert", "../scene/shaders/ground.frag");
 		mvpMatrixID = glGetUniformLocation(programID, "MVP");
+		//textureID = LoadTextureTileBox("../scene/textures/ground.png");
+		//textureSamplerID = glGetUniformLocation(programID,"textureSampler");
 	}
 
 	void render(glm::mat4 cameraMatrix) {
@@ -109,20 +106,27 @@ struct AxisXYZ {
 		glBindBuffer(GL_ARRAY_BUFFER, colorBufferID);
 		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, 0);
 
-		glm::mat4 mvp = cameraMatrix;
+		glEnableVertexAttribArray(2);
+		glBindBuffer(GL_ARRAY_BUFFER, uvBufferID);
+		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, 0);
+
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBufferID);
+
+        glm::mat4 modelMatrix = glm::mat4();
+		glm::mat4 mvp = cameraMatrix * modelMatrix;
 		glUniformMatrix4fv(mvpMatrixID, 1, GL_FALSE, &mvp[0][0]);
 
-        // Draw the lines
-        glDrawArrays(GL_LINES, 0, 6);
-
-		glDisableVertexAttribArray(0);
-		glDisableVertexAttribArray(1);
+		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
+		glDisableVertexAttribArray(2);
 	}
 
 	void cleanup() {
 		glDeleteBuffers(1, &vertexBufferID);
 		glDeleteBuffers(1, &colorBufferID);
+		glDeleteBuffers(1, &indexBufferID);
 		glDeleteVertexArrays(1, &vertexArrayID);
+		glDeleteBuffers(1, &uvBufferID);
+		//glDeleteTextures(1, &textureID);
 		glDeleteProgram(programID);
 	}
 };
@@ -161,12 +165,12 @@ int main(void)
     }
 
     // Setup
-    glClearColor(0.1f, 0.1f, 0.12f, 1.0f);
+    glClearColor(0.2f, 0.1f, 0.12f, 1.0f);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
 
-	AxisXYZ axes;
-	axes.initialize();
+	GroundPlane ground;
+	ground.initialize();
 
     // Camera setup
     glm::mat4 projectionMatrix = glm::perspective(glm::radians(FoV), (float)windowWidth / windowHeight, zNear, zFar);
@@ -181,7 +185,7 @@ int main(void)
         glm::mat4 viewMatrix = glm::lookAt(eye_center, lookat, up);
         glm::mat4 vp = projectionMatrix * viewMatrix;
 
-    	axes.render(vp);
+    	ground.render(vp);
 
         // Swap buffers
         glfwSwapBuffers(window);
@@ -212,13 +216,11 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
 
 	// Move left/right: a/d
 	if (key == GLFW_KEY_A && (action == GLFW_REPEAT || action == GLFW_PRESS)) {
-
 		glm::vec3 move = rightOfDirection * speed;
 		eye_center -= move;
 		lookat -= move;
 	}
 	if (key == GLFW_KEY_D && (action == GLFW_REPEAT || action == GLFW_PRESS)) {
-
 		glm::vec3 move = rightOfDirection * speed;
 		eye_center += move;
 		lookat += move;
