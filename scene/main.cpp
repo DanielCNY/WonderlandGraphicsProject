@@ -70,7 +70,7 @@ int main(void)
     }
 
     // Setup
-    glClearColor(0.2f, 0.1f, 0.12f, 1.0f);
+    glClearColor(0.1f, 0.1f, 0.2f, 1.0f);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
 

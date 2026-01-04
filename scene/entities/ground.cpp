@@ -52,7 +52,8 @@ void GroundPlane::initialize() {
     mvpMatrixID = glGetUniformLocation(programID, "MVP");
 
     TextureManager& tm = TextureManager::getInstance();
-    textureID = tm.getTexture("../scene/textures/snowy_ground.jpg");
+    int facade = 1 + std::rand() % 2;
+    textureID = tm.getTexture("../scene/textures/snowy_ground0" + std::to_string(facade) + ".jpg");
 
     textureSamplerID = glGetUniformLocation(programID,"textureSampler");
 }
