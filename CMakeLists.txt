@@ -18,6 +18,8 @@ include_directories(
 
 add_executable(main
 		scene/main.cpp
+		scene/ground.cpp
+		scene/texture_manager.cpp
 	scene/render/shader.cpp
 )
 
