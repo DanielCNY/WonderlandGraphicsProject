@@ -11,6 +11,11 @@ public:
     void cleanup();
 
 private:
+    static GLuint sharedProgramID;
+    static GLuint sharedMvpMatrixID;
+    static GLuint sharedTextureSamplerID;
+    static bool shadersLoaded;
+
     GLuint vertexArrayID = 0;
     GLuint vertexBufferID = 0;
     GLuint indexBufferID = 0;

@@ -1,13 +1,19 @@
 #include "ground.h"
 #include "../utils/texture_manager.h"
 #include "../render/shader.h"
+#include <iostream>
+
+GLuint GroundPlane::sharedProgramID = 0;
+GLuint GroundPlane::sharedMvpMatrixID = 0;
+GLuint GroundPlane::sharedTextureSamplerID = 0;
+bool GroundPlane::shadersLoaded = false;
 
 void GroundPlane::initialize() {
     GLfloat vertex_buffer_data[12] = {
-        -150.0f, 0.0f, -150.0f,
-        -150.0f, 0.0f, 150.0f,
-        150.0f, 0.0f, 150.0f,
-        150.0f, 0.0f, -150.0f,
+        -250.0f, 0.0f, -250.0f,
+        -250.0f, 0.0f, 250.0f,
+        250.0f, 0.0f, 250.0f,
+        250.0f, 0.0f, -250.0f,
     };
 
     GLfloat color_buffer_data[12] = {
@@ -24,9 +30,9 @@ void GroundPlane::initialize() {
 
     GLfloat uv_buffer_data[8] = {
         0.0f, 0.0f,
-        0.0f, 1.0f,
-        1.0f, 1.0f,
-        1.0f, 0.0f,
+        0.0f, 2.0f,
+        2.0f, 2.0f,
+        2.0f, 0.0f,
     };
 
     glGenVertexArrays(1, &vertexArrayID);
@@ -48,8 +54,21 @@ void GroundPlane::initialize() {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBufferID);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(index_buffer_data), index_buffer_data, GL_STATIC_DRAW);
 
-    programID = LoadShadersFromFile("../scene/shaders/ground.vert", "../scene/shaders/ground.frag");
-    mvpMatrixID = glGetUniformLocation(programID, "MVP");
+    if (!shadersLoaded) {
+        sharedProgramID = LoadShadersFromFile("../scene/shaders/ground.vert", "../scene/shaders/ground.frag");
+        if (sharedProgramID == 0) {
+            std::cerr << "FAILED TO LOAD GROUND SHADERS!" << std::endl;
+            return;
+        }
+
+        sharedMvpMatrixID = glGetUniformLocation(sharedProgramID, "MVP");
+        sharedTextureSamplerID = glGetUniformLocation(sharedProgramID, "textureSampler");
+        shadersLoaded = true;
+    }
+
+    programID = sharedProgramID;
+    mvpMatrixID = sharedMvpMatrixID;
+    textureSamplerID = sharedTextureSamplerID;
 
     TextureManager& tm = TextureManager::getInstance();
     int facade = 1 + std::rand() % 2;
@@ -59,6 +78,10 @@ void GroundPlane::initialize() {
 }
 
 void GroundPlane::render(glm::mat4 cameraMatrix) {
+
+    GLint currentProgram;
+    glGetIntegerv(GL_CURRENT_PROGRAM, &currentProgram);
+
     glUseProgram(programID);
 
     glEnableVertexAttribArray(0);
@@ -84,6 +107,11 @@ void GroundPlane::render(glm::mat4 cameraMatrix) {
     glUniformMatrix4fv(mvpMatrixID, 1, GL_FALSE, &mvp[0][0]);
 
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
+
+    GLenum err = glGetError();
+    if (err != GL_NO_ERROR) {
+        std::cout << "GROUND ERROR: OpenGL error " << err << " after draw" << std::endl;
+    }
 
     glDisableVertexAttribArray(2);
     glDisableVertexAttribArray(1);

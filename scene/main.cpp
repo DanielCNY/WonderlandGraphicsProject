@@ -4,7 +4,6 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
-#include <stb/stb_image.h>
 
 #include "utils/world_manager.h"
 
@@ -70,7 +69,7 @@ int main(void)
     }
 
     // Setup
-    glClearColor(0.1f, 0.1f, 0.2f, 1.0f);
+    glClearColor(0.2f, 0.25f, 0.5f, 1.0f);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
 
@@ -101,7 +100,7 @@ int main(void)
 
 static void key_callback(GLFWwindow *window, int key, int scancode, int action, int mode)
 {
-	float speed = 3.0f;
+	float speed = 5.0f;
 	glm::vec3 lookDirection = glm::normalize(lookat - eye_center);
 	glm::vec3 rightOfDirection = glm::normalize(glm::cross(lookDirection, up));
 

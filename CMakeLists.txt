@@ -22,6 +22,7 @@ add_executable(main
 		scene/utils/world_manager.cpp
 		scene/entities/ground.cpp
         scene/entities/chunk.cpp
+		scene/entities/static_model.cpp
 	scene/render/shader.cpp
 )
 

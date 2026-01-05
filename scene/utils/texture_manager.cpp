@@ -1,5 +1,5 @@
 #include "texture_manager.h"
-#include <stb/stb_image.h>
+#include <tinygltf-2.9.3/stb_image.h>
 #include <iostream>
 
 TextureManager& TextureManager::getInstance() {
