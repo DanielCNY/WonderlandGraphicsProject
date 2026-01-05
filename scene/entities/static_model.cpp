@@ -1,8 +1,11 @@
 #include "static_model.h"
 #include "../render/shader.h"
+#include "../utils/texture_manager.h"
 #include <iostream>
 #include <vector>
 #include <map>
+#include <string>
+#include <filesystem>
 
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
@@ -11,11 +14,50 @@
 
 #define BUFFER_OFFSET(i) ((char *)NULL + (i))
 
-StaticModel::StaticModel() : programID(0), mvpMatrixID(0) {
+StaticModel::StaticModel() : programID(0), mvpMatrixID(0), textureSamplerID(0) {
 }
 
 StaticModel::~StaticModel() {
     cleanup();
+}
+
+GLuint StaticModel::loadTextureFromMemory(const unsigned char* data, int width, int height, int channels) {
+    GLuint textureID;
+    glGenTextures(1, &textureID);
+    glBindTexture(GL_TEXTURE_2D, textureID);
+
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    GLenum format = GL_RGB;
+    if (channels == 1) format = GL_RED;
+    else if (channels == 2) format = GL_RG;
+    else if (channels == 3) format = GL_RGB;
+    else if (channels == 4) format = GL_RGBA;
+
+    glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    return textureID;
+}
+
+GLuint StaticModel::createDefaultTexture() {
+    GLuint textureID;
+    glGenTextures(1, &textureID);
+    glBindTexture(GL_TEXTURE_2D, textureID);
+
+    unsigned char defaultTexture[] = { 50, 205, 50, 255 };
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, defaultTexture);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    return textureID;
 }
 
 bool StaticModel::loadModel(const char* filename) {
@@ -56,6 +98,10 @@ bool StaticModel::loadModel(const char* filename) {
         return false;
     }
 
+    std::filesystem::path gltfPath(filename);
+    std::string directory = gltfPath.parent_path().string();
+    if (directory.empty()) directory = ".";
+
     std::map<int, GLuint> vbos;
     for (size_t i = 0; i < model.bufferViews.size(); ++i) {
         const tinygltf::BufferView &bufferView = model.bufferViews[i];
@@ -80,6 +126,7 @@ bool StaticModel::loadModel(const char* filename) {
         glGenVertexArrays(1, &vao);
         glBindVertexArray(vao);
 
+        bool hasTexCoords = false;
         for (auto &attrib : primitive.attributes) {
             const tinygltf::Accessor &accessor = model.accessors[attrib.second];
 
@@ -91,7 +138,10 @@ bool StaticModel::loadModel(const char* filename) {
             int location = -1;
             if (attrib.first == "POSITION") location = 0;
             else if (attrib.first == "NORMAL") location = 1;
-            else if (attrib.first == "TEXCOORD_0") location = 2;
+            else if (attrib.first == "TEXCOORD_0") {
+                location = 2;
+                hasTexCoords = true;
+            }
 
             if (location >= 0) {
                 glEnableVertexAttribArray(location);
@@ -119,12 +169,52 @@ bool StaticModel::loadModel(const char* filename) {
             }
         }
 
+        GLuint textureID = 0;
+        if (primitive.material >= 0 && primitive.material < model.materials.size()) {
+            const tinygltf::Material &material = model.materials[primitive.material];
+
+            if (material.pbrMetallicRoughness.baseColorTexture.index >= 0) {
+                int texIndex = material.pbrMetallicRoughness.baseColorTexture.index;
+                if (texIndex < model.textures.size()) {
+                    const tinygltf::Texture &texture = model.textures[texIndex];
+                    if (texture.source >= 0 && texture.source < model.images.size()) {
+                        const tinygltf::Image &image = model.images[texture.source];
+
+                        if (!image.uri.empty()) {
+                            std::string texturePath = image.uri;
+                            std::cout << "Attempting to load texture from: " << texturePath << std::endl;
+
+                            textureID = TextureManager::getInstance().getTexture(texturePath);
+
+                            if (textureID == 0) {
+                                std::cout << "WARNING: TextureManager failed to load: " << texturePath << std::endl;
+                                std::cout << "Trying to load directly from memory..." << std::endl;
+
+                                if (!image.image.empty()) {
+                                    textureID = loadTextureFromMemory(image.image.data(),
+                                                                    image.width,
+                                                                    image.height,
+                                                                    image.component);
+                                    std::cout << "Direct load result: " << (textureID != 0 ? "SUCCESS" : "FAILED") << std::endl;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (textureID == 0) {
+            textureID = createDefaultTexture();
+        }
+
         PrimitiveObject primObj;
         primObj.vao = vao;
         primObj.vbos = vbos;
         primObj.mode = primitive.mode;
         primObj.indexCount = indexCount;
         primObj.indexType = indexType;
+        primObj.textureID = textureID;
 
         primitiveObjects.push_back(primObj);
         glBindVertexArray(0);
@@ -140,6 +230,7 @@ bool StaticModel::loadModel(const char* filename) {
     }
 
     mvpMatrixID = glGetUniformLocation(programID, "MVP");
+    textureSamplerID = glGetUniformLocation(programID, "textureSampler");
 
     restoreOpenGLState(prevProgram, prevVAO, prevArrayBuffer, prevElementBuffer,
                       prevDepthTest, prevCullFace, attribEnabled);
@@ -185,6 +276,15 @@ void StaticModel::render(const glm::mat4& cameraMatrix) {
     glUniformMatrix4fv(mvpMatrixID, 1, GL_FALSE, &cameraMatrix[0][0]);
 
     for (const auto& primitive : primitiveObjects) {
+        if (primitive.textureID != 0) {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, primitive.textureID);
+
+            if (textureSamplerID != -1) {
+                glUniform1i(textureSamplerID, 0);
+            }
+        }
+
         glBindVertexArray(primitive.vao);
 
         if (primitive.indexCount > 0) {
@@ -205,7 +305,6 @@ void StaticModel::render(const glm::mat4& cameraMatrix) {
 
     glBindBuffer(GL_ARRAY_BUFFER, prevArrayBuffer);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, prevElementBuffer);
-
     glBindVertexArray(prevVAO);
     glUseProgram(prevProgram);
 }
@@ -220,6 +319,10 @@ void StaticModel::cleanup() {
             glDeleteBuffers(1, &vboPair.second);
         }
         primitive.vbos.clear();
+
+        if (primitive.textureID) {
+            glDeleteTextures(1, &primitive.textureID);
+        }
     }
     primitiveObjects.clear();
 

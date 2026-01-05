@@ -23,15 +23,21 @@ private:
         GLenum mode;
         int indexCount;
         GLenum indexType;
+        GLuint textureID;
     };
 
     std::vector<PrimitiveObject> primitiveObjects;
+
+    GLuint programID;
+    GLuint mvpMatrixID;
+    GLuint textureSamplerID;
+
     void restoreOpenGLState(GLint program, GLint vao, GLint arrayBuffer,
                            GLint elementBuffer, GLboolean depthTest,
                            GLboolean cullFace, GLint attribEnabled[4]);
 
-    GLuint programID;
-    GLuint mvpMatrixID;
+    GLuint loadTextureFromMemory(const unsigned char* data, int width, int height, int channels);
+    GLuint createDefaultTexture();
 };
 
 #endif

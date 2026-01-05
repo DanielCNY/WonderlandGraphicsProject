@@ -27,7 +27,8 @@ void Chunk::render(const glm::mat4& viewProjectionMatrix) {
     float centerZ = chunkZ * SIZE + SIZE / 2.0f;
 
     glm::mat4 treeModelMatrix = glm::mat4(1.0f);
-    treeModelMatrix = glm::translate(treeModelMatrix, glm::vec3(centerX, 0.0f, centerZ));
+    treeModelMatrix = glm::translate(treeModelMatrix, glm::vec3(centerX, 5.0f, centerZ));
+    treeModelMatrix = glm::rotate(treeModelMatrix, glm::radians(90.0f), glm::vec3(-1.0f, 0.0f, 0.0f));
 
     glm::mat4 treeMvp = viewProjectionMatrix * treeModelMatrix;
 
