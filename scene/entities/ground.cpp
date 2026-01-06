@@ -4,9 +4,8 @@
 #include <iostream>
 
 GroundPlane::GroundPlane()
-    : programID(0), mvpMatrixID(0), textureSamplerID(0), textureID(0),
-      vertexArrayID(0), vertexBufferID(0), colorBufferID(0),
-      uvBufferID(0), indexBufferID(0), normalBufferID(0) {
+    : programID(0), mvpMatrixID(0), textureSamplerID(0), textureID(0), vertexArrayID(0), vertexBufferID(0),
+            uvBufferID(0), indexBufferID(0), normalBufferID(0) {
 }
 
 GroundPlane::~GroundPlane() {
@@ -14,8 +13,8 @@ GroundPlane::~GroundPlane() {
 }
 
 GLuint GroundPlane::loadGroundShaders() {
-    return LoadShadersFromFile("../scene/shaders/ground.vert",
-                              "../scene/shaders/ground.frag");
+    return LoadShadersFromFile("../scene/shaders/simple.vert",
+                              "../scene/shaders/simple.frag");
 }
 
 void GroundPlane::initialize() {
@@ -53,13 +52,6 @@ void GroundPlane::initialize() {
         500.0f, 0.0f, -500.0f,
     };
 
-    GLfloat color_buffer_data[12] = {
-        1,1,1,
-        1,1,1,
-        1,1,1,
-        1,1,1
-    };
-
     GLuint index_buffer_data[6] = {
         0, 1, 2,
         0, 2, 3,
@@ -86,11 +78,6 @@ void GroundPlane::initialize() {
     glBindBuffer(GL_ARRAY_BUFFER, vertexBufferID);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_buffer_data),
                  vertex_buffer_data, GL_STATIC_DRAW);
-
-    glGenBuffers(1, &colorBufferID);
-    glBindBuffer(GL_ARRAY_BUFFER, colorBufferID);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(color_buffer_data),
-                 color_buffer_data, GL_STATIC_DRAW);
 
     glGenBuffers(1, &uvBufferID);
     glBindBuffer(GL_ARRAY_BUFFER, uvBufferID);
@@ -161,17 +148,14 @@ void GroundPlane::render(const glm::mat4& modelMatrix, const glm::mat4& viewProj
     glBindBuffer(GL_ARRAY_BUFFER, vertexBufferID);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
 
-    glEnableVertexAttribArray(1);
-    glBindBuffer(GL_ARRAY_BUFFER, colorBufferID);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, 0);
 
-    glEnableVertexAttribArray(2);
+    glEnableVertexAttribArray(1);
     glBindBuffer(GL_ARRAY_BUFFER, uvBufferID);
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, 0);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBufferID);
 
-    glEnableVertexAttribArray(3);
+    glEnableVertexAttribArray(2);
     glBindBuffer(GL_ARRAY_BUFFER, normalBufferID);
     glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 0, 0);
 
@@ -201,7 +185,6 @@ void GroundPlane::render(const glm::mat4& modelMatrix, const glm::mat4& viewProj
 
 void GroundPlane::cleanup() {
     if (vertexBufferID) glDeleteBuffers(1, &vertexBufferID);
-    if (colorBufferID) glDeleteBuffers(1, &colorBufferID);
     if (indexBufferID) glDeleteBuffers(1, &indexBufferID);
     if (vertexArrayID) glDeleteVertexArrays(1, &vertexArrayID);
     if (uvBufferID) glDeleteBuffers(1, &uvBufferID);

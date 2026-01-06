@@ -17,7 +17,6 @@ private:
     GLuint textureID;
     GLuint vertexArrayID;
     GLuint vertexBufferID;
-    GLuint colorBufferID;
     GLuint uvBufferID;
     GLuint indexBufferID;
     GLuint normalBufferID;

@@ -148,8 +148,8 @@ std::shared_ptr<StaticModel::ModelCache> StaticModel::loadModelToCache(const cha
         return nullptr;
     }
 
-    cache->programID = LoadShadersFromFile("../scene/shaders/static_model.vert",
-                                          "../scene/shaders/static_model.frag");
+    cache->programID = LoadShadersFromFile("../scene/shaders/simple.vert",
+                                          "../scene/shaders/simple.frag");
     if (cache->programID == 0) {
         std::cerr << "Failed to load static model shaders" << std::endl;
         restoreOpenGLState(prevProgram, prevVAO, prevArrayBuffer, prevElementBuffer,
