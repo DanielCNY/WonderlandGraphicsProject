@@ -41,10 +41,10 @@ void GroundPlane::initialize() {
     textureSamplerID = glGetUniformLocation(programID, "textureSampler");
 
     GLfloat vertex_buffer_data[12] = {
-        -250.0f, 0.0f, -250.0f,
-        -250.0f, 0.0f, 250.0f,
-        250.0f, 0.0f, 250.0f,
-        250.0f, 0.0f, -250.0f,
+        -500.0f, 0.0f, -500.0f,
+        -500.0f, 0.0f, 500.0f,
+        500.0f, 0.0f, 500.0f,
+        500.0f, 0.0f, -500.0f,
     };
 
     GLfloat color_buffer_data[12] = {

@@ -30,7 +30,6 @@ private:
     };
 
     static std::unordered_map<std::string, std::shared_ptr<ModelCache>> modelCache;
-
     std::string modelFilename;
     std::shared_ptr<ModelCache> cachedModel;
 

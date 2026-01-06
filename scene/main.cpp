@@ -6,10 +6,11 @@
 #include "utils/world_manager.h"
 
 #include <iostream>
+#include <iomanip>
 
 static GLFWwindow *window;
-static int windowWidth = 1024;
-static int windowHeight = 768;
+static int windowWidth = 1920;
+static int windowHeight = 1080;
 
 static void key_callback(GLFWwindow *window, int key, int scancode, int action, int mode);
 static void cursor_callback(GLFWwindow* window, double xpos, double ypos);
@@ -21,7 +22,7 @@ static glm::vec3 up(0.0f, 1.0f, 0.0f);
 
 static float FoV = 60.0f;
 static float zNear = 1.0f;
-static float zFar = 3000.0f;
+static float zFar = 8000.0f;
 
 // Mouse movement
 static float yaw = -90.0f;
@@ -71,6 +72,10 @@ int main(void)
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
 
+	// FPS tracking
+	double lastTime = glfwGetTime();
+	int frameCount = 0;
+
     // Camera setup
     glm::mat4 projectionMatrix = glm::perspective(glm::radians(FoV), (float)windowWidth / windowHeight, zNear, zFar);
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -83,6 +88,25 @@ int main(void)
         // Camera/view matrix
         glm::mat4 viewMatrix = glm::lookAt(eye_center, lookat, up);
         glm::mat4 vp = projectionMatrix * viewMatrix;
+
+    	// Calculate FPS
+    	double currentTime = glfwGetTime();
+    	frameCount++;
+
+    	// Update FPS every second
+    	if (currentTime - lastTime >= 1.0)
+    	{
+    		double fps = frameCount / (currentTime - lastTime);
+
+    		// Create window title with FPS
+    		std::stringstream ss;
+    		ss << "Wonderland Project | FPS: " << std::fixed << std::setprecision(1) << fps;
+    		glfwSetWindowTitle(window, ss.str().c_str());
+
+    		// Reset counters
+    		frameCount = 0;
+    		lastTime = currentTime;
+    	}
 
     	worldManager.update(eye_center);
     	worldManager.render(vp);
@@ -98,7 +122,7 @@ int main(void)
 
 static void key_callback(GLFWwindow *window, int key, int scancode, int action, int mode)
 {
-	float speed = 5.0f;
+	float speed = 40.0f;
 	glm::vec3 lookDirection = glm::normalize(lookat - eye_center);
 	glm::vec3 rightOfDirection = glm::normalize(glm::cross(lookDirection, up));
 

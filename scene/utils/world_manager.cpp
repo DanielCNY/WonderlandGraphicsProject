@@ -3,7 +3,7 @@
 #include <cmath>
 #include <iostream>
 
-static constexpr int CHUNK_RADIUS = 3;
+static constexpr int CHUNK_RADIUS = 7;
 
 WorldManager::WorldManager()
     : centerChunkX(0), centerChunkZ(0), initialized(false)
