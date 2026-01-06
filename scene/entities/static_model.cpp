@@ -26,7 +26,6 @@ GLuint StaticModel::loadTextureFromMemory(const unsigned char* data, int width, 
     glGenTextures(1, &textureID);
     glBindTexture(GL_TEXTURE_2D, textureID);
 
-
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
@@ -64,18 +63,11 @@ bool StaticModel::loadModel(const char* filename) {
     cleanup();
 
     GLint prevProgram, prevVAO, prevArrayBuffer, prevElementBuffer;
-    glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
-    glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &prevVAO);
-    glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &prevArrayBuffer);
-    glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &prevElementBuffer);
-
-    GLboolean prevDepthTest = glIsEnabled(GL_DEPTH_TEST);
-    GLboolean prevCullFace = glIsEnabled(GL_CULL_FACE);
-
+    GLboolean prevDepthTest, prevCullFace;
     GLint attribEnabled[4];
-    for (int i = 0; i < 4; i++) {
-        glGetVertexAttribiv(i, GL_VERTEX_ATTRIB_ARRAY_ENABLED, &attribEnabled[i]);
-    }
+
+    saveOpenGLState(prevProgram, prevVAO, prevArrayBuffer, prevElementBuffer,
+                   prevDepthTest, prevCullFace, attribEnabled);
 
     tinygltf::TinyGLTF loader;
     tinygltf::Model model;
@@ -102,49 +94,52 @@ bool StaticModel::loadModel(const char* filename) {
     std::string directory = gltfPath.parent_path().string();
     if (directory.empty()) directory = ".";
 
-    std::map<int, GLuint> vbos;
-    for (size_t i = 0; i < model.bufferViews.size(); ++i) {
-        const tinygltf::BufferView &bufferView = model.bufferViews[i];
-
-        if (bufferView.target == 0) continue;
-
-        const tinygltf::Buffer &buffer = model.buffers[bufferView.buffer];
-        GLuint vbo;
-        glGenBuffers(1, &vbo);
-        glBindBuffer(bufferView.target, vbo);
-        glBufferData(bufferView.target, bufferView.byteLength,
-                    &buffer.data.at(0) + bufferView.byteOffset, GL_STATIC_DRAW);
-        vbos[i] = vbo;
+    programID = LoadShadersFromFile("../scene/shaders/static_model.vert",
+                                   "../scene/shaders/static_model.frag");
+    if (programID == 0) {
+        std::cerr << "Failed to load static model shaders" << std::endl;
+        restoreOpenGLState(prevProgram, prevVAO, prevArrayBuffer, prevElementBuffer,
+                          prevDepthTest, prevCullFace, attribEnabled);
+        return false;
     }
+
+    mvpMatrixID = glGetUniformLocation(programID, "MVP");
+    textureSamplerID = glGetUniformLocation(programID, "textureSampler");
 
     const tinygltf::Mesh &mesh = model.meshes[0];
 
     for (size_t i = 0; i < mesh.primitives.size(); ++i) {
         const tinygltf::Primitive &primitive = mesh.primitives[i];
 
-        GLuint vao;
-        glGenVertexArrays(1, &vao);
-        glBindVertexArray(vao);
+        PrimitiveObject primObj;
+        primObj.mode = primitive.mode;
+        primObj.indexCount = 0;
+        primObj.indexType = GL_UNSIGNED_INT;
 
-        bool hasTexCoords = false;
+        glGenVertexArrays(1, &primObj.vao);
+        glBindVertexArray(primObj.vao);
+
         for (auto &attrib : primitive.attributes) {
             const tinygltf::Accessor &accessor = model.accessors[attrib.second];
+            const tinygltf::BufferView &bufferView = model.bufferViews[accessor.bufferView];
+            const tinygltf::Buffer &buffer = model.buffers[bufferView.buffer];
 
-            if (vbos.find(accessor.bufferView) == vbos.end()) continue;
+            GLuint vbo;
+            glGenBuffers(1, &vbo);
+            glBindBuffer(bufferView.target, vbo);
+            glBufferData(bufferView.target, bufferView.byteLength,
+                        &buffer.data.at(0) + bufferView.byteOffset, GL_STATIC_DRAW);
 
-            glBindBuffer(GL_ARRAY_BUFFER, vbos[accessor.bufferView]);
-            int byteStride = accessor.ByteStride(model.bufferViews[accessor.bufferView]);
+            primObj.vbos.push_back(vbo);
 
             int location = -1;
             if (attrib.first == "POSITION") location = 0;
             else if (attrib.first == "NORMAL") location = 1;
-            else if (attrib.first == "TEXCOORD_0") {
-                location = 2;
-                hasTexCoords = true;
-            }
+            else if (attrib.first == "TEXCOORD_0") location = 2;
 
             if (location >= 0) {
                 glEnableVertexAttribArray(location);
+                glBindBuffer(GL_ARRAY_BUFFER, vbo);
 
                 GLint size = 1;
                 if (accessor.type == TINYGLTF_TYPE_VEC2) size = 2;
@@ -153,23 +148,30 @@ bool StaticModel::loadModel(const char* filename) {
 
                 glVertexAttribPointer(location, size, accessor.componentType,
                     accessor.normalized ? GL_TRUE : GL_FALSE,
-                    byteStride, BUFFER_OFFSET(accessor.byteOffset));
+                    accessor.ByteStride(bufferView),
+                    BUFFER_OFFSET(accessor.byteOffset));
             }
         }
-
-        int indexCount = 0;
-        GLenum indexType = GL_UNSIGNED_INT;
 
         if (primitive.indices >= 0) {
             const tinygltf::Accessor &indexAccessor = model.accessors[primitive.indices];
-            if (vbos.find(indexAccessor.bufferView) != vbos.end()) {
-                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbos[indexAccessor.bufferView]);
-                indexCount = indexAccessor.count;
-                indexType = indexAccessor.componentType;
-            }
+            const tinygltf::BufferView &indexBufferView = model.bufferViews[indexAccessor.bufferView];
+            const tinygltf::Buffer &indexBuffer = model.buffers[indexBufferView.buffer];
+
+            GLuint ebo;
+            glGenBuffers(1, &ebo);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexBufferView.byteLength,
+                        &indexBuffer.data.at(0) + indexBufferView.byteOffset, GL_STATIC_DRAW);
+
+            primObj.vbos.push_back(ebo);
+            primObj.indexCount = indexAccessor.count;
+            primObj.indexType = indexAccessor.componentType;
         }
 
         GLuint textureID = 0;
+        bool isTextureFromManager = false;
+
         if (primitive.material >= 0 && primitive.material < model.materials.size()) {
             const tinygltf::Material &material = model.materials[primitive.material];
 
@@ -185,6 +187,7 @@ bool StaticModel::loadModel(const char* filename) {
                             std::cout << "Attempting to load texture from: " << texturePath << std::endl;
 
                             textureID = TextureManager::getInstance().getTexture(texturePath);
+                            isTextureFromManager = (textureID != 0);
 
                             if (textureID == 0) {
                                 std::cout << "WARNING: TextureManager failed to load: " << texturePath << std::endl;
@@ -195,9 +198,13 @@ bool StaticModel::loadModel(const char* filename) {
                                                                     image.width,
                                                                     image.height,
                                                                     image.component);
-                                    std::cout << "Direct load result: " << (textureID != 0 ? "SUCCESS" : "FAILED") << std::endl;
                                 }
                             }
+                        } else if (!image.image.empty()) {
+                            textureID = loadTextureFromMemory(image.image.data(),
+                                                            image.width,
+                                                            image.height,
+                                                            image.component);
                         }
                     }
                 }
@@ -208,29 +215,12 @@ bool StaticModel::loadModel(const char* filename) {
             textureID = createDefaultTexture();
         }
 
-        PrimitiveObject primObj;
-        primObj.vao = vao;
-        primObj.vbos = vbos;
-        primObj.mode = primitive.mode;
-        primObj.indexCount = indexCount;
-        primObj.indexType = indexType;
         primObj.textureID = textureID;
+        primObj.isTextureFromManager = isTextureFromManager;
 
         primitiveObjects.push_back(primObj);
         glBindVertexArray(0);
     }
-
-    programID = LoadShadersFromFile("../scene/shaders/static_model.vert",
-                                   "../scene/shaders/static_model.frag");
-    if (programID == 0) {
-        std::cerr << "Failed to load static model shaders" << std::endl;
-        restoreOpenGLState(prevProgram, prevVAO, prevArrayBuffer, prevElementBuffer,
-                          prevDepthTest, prevCullFace, attribEnabled);
-        return false;
-    }
-
-    mvpMatrixID = glGetUniformLocation(programID, "MVP");
-    textureSamplerID = glGetUniformLocation(programID, "textureSampler");
 
     restoreOpenGLState(prevProgram, prevVAO, prevArrayBuffer, prevElementBuffer,
                       prevDepthTest, prevCullFace, attribEnabled);
@@ -238,9 +228,25 @@ bool StaticModel::loadModel(const char* filename) {
     return true;
 }
 
+void StaticModel::saveOpenGLState(GLint& program, GLint& vao, GLint& arrayBuffer,
+                                 GLint& elementBuffer, GLboolean& depthTest,
+                                 GLboolean& cullFace, GLint attribEnabled[4]) {
+    glGetIntegerv(GL_CURRENT_PROGRAM, &program);
+    glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &vao);
+    glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &arrayBuffer);
+    glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &elementBuffer);
+
+    depthTest = glIsEnabled(GL_DEPTH_TEST);
+    cullFace = glIsEnabled(GL_CULL_FACE);
+
+    for (int i = 0; i < 4; i++) {
+        glGetVertexAttribiv(i, GL_VERTEX_ATTRIB_ARRAY_ENABLED, &attribEnabled[i]);
+    }
+}
+
 void StaticModel::restoreOpenGLState(GLint program, GLint vao, GLint arrayBuffer,
-                                     GLint elementBuffer, GLboolean depthTest,
-                                     GLboolean cullFace, GLint attribEnabled[4]) {
+                                    GLint elementBuffer, GLboolean depthTest,
+                                    GLboolean cullFace, GLint attribEnabled[4]) {
     glUseProgram(program);
     glBindVertexArray(vao);
     glBindBuffer(GL_ARRAY_BUFFER, arrayBuffer);
@@ -262,51 +268,33 @@ void StaticModel::render(const glm::mat4& cameraMatrix) {
     if (programID == 0 || primitiveObjects.empty()) return;
 
     GLint prevProgram, prevVAO, prevArrayBuffer, prevElementBuffer;
-    glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
-    glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &prevVAO);
-    glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &prevArrayBuffer);
-    glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &prevElementBuffer);
-
+    GLboolean prevDepthTest, prevCullFace;
     GLint attribEnabled[4];
-    for (int i = 0; i < 4; i++) {
-        glGetVertexAttribiv(i, GL_VERTEX_ATTRIB_ARRAY_ENABLED, &attribEnabled[i]);
-    }
+    saveOpenGLState(prevProgram, prevVAO, prevArrayBuffer, prevElementBuffer,
+                   prevDepthTest, prevCullFace, attribEnabled);
 
     glUseProgram(programID);
     glUniformMatrix4fv(mvpMatrixID, 1, GL_FALSE, &cameraMatrix[0][0]);
 
+    glActiveTexture(GL_TEXTURE0);
+    glUniform1i(textureSamplerID, 0);
+
     for (const auto& primitive : primitiveObjects) {
-        if (primitive.textureID != 0) {
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, primitive.textureID);
-
-            if (textureSamplerID != -1) {
-                glUniform1i(textureSamplerID, 0);
-            }
-        }
-
+        glBindTexture(GL_TEXTURE_2D, primitive.textureID);
         glBindVertexArray(primitive.vao);
 
         if (primitive.indexCount > 0) {
             glDrawElements(primitive.mode, primitive.indexCount,
                          primitive.indexType, nullptr);
+        } else {
+            glDrawArrays(primitive.mode, 0, 36);
         }
 
         glBindVertexArray(0);
     }
 
-    for (int i = 0; i < 4; i++) {
-        if (attribEnabled[i]) {
-            glEnableVertexAttribArray(i);
-        } else {
-            glDisableVertexAttribArray(i);
-        }
-    }
-
-    glBindBuffer(GL_ARRAY_BUFFER, prevArrayBuffer);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, prevElementBuffer);
-    glBindVertexArray(prevVAO);
-    glUseProgram(prevProgram);
+    restoreOpenGLState(prevProgram, prevVAO, prevArrayBuffer, prevElementBuffer,
+                      prevDepthTest, prevCullFace, attribEnabled);
 }
 
 void StaticModel::cleanup() {
@@ -315,12 +303,12 @@ void StaticModel::cleanup() {
             glDeleteVertexArrays(1, &primitive.vao);
         }
 
-        for (auto& vboPair : primitive.vbos) {
-            glDeleteBuffers(1, &vboPair.second);
+        for (auto vbo : primitive.vbos) {
+            glDeleteBuffers(1, &vbo);
         }
         primitive.vbos.clear();
 
-        if (primitive.textureID) {
+        if (primitive.textureID && !primitive.isTextureFromManager) {
             glDeleteTextures(1, &primitive.textureID);
         }
     }
@@ -329,5 +317,7 @@ void StaticModel::cleanup() {
     if (programID) {
         glDeleteProgram(programID);
         programID = 0;
+        mvpMatrixID = 0;
+        textureSamplerID = 0;
     }
 }

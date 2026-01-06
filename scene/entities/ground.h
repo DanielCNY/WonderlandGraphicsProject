@@ -1,31 +1,29 @@
-#ifndef GROUND_H
-#define GROUND_H
-
-#include <glm/glm.hpp>
+#pragma once
 #include <glad/gl.h>
+#include <glm/glm.hpp>
 
 class GroundPlane {
+private:
+    GLuint programID;
+    GLuint mvpMatrixID;
+    GLuint textureSamplerID;
+    GLuint textureID;
+    GLuint vertexArrayID;
+    GLuint vertexBufferID;
+    GLuint colorBufferID;
+    GLuint uvBufferID;
+    GLuint indexBufferID;
+
+    
 public:
+    GroundPlane();
+    ~GroundPlane();
+    
     void initialize();
     void render(glm::mat4 cameraMatrix);
+    void restoreState(GLint program, GLint vao, GLint arrayBuffer,
+                            GLint elementBuffer, GLint attribEnabled[4]);
     void cleanup();
 
-private:
-    static GLuint sharedProgramID;
-    static GLuint sharedMvpMatrixID;
-    static GLuint sharedTextureSamplerID;
-    static bool shadersLoaded;
-
-    GLuint vertexArrayID = 0;
-    GLuint vertexBufferID = 0;
-    GLuint indexBufferID = 0;
-    GLuint colorBufferID = 0;
-    GLuint uvBufferID = 0;
-    GLuint textureID = 0;
-
-    GLuint mvpMatrixID = 0;
-    GLuint textureSamplerID = 0;
-    GLuint programID = 0;
+    static GLuint loadGroundShaders();
 };
-
-#endif

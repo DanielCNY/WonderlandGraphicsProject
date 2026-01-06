@@ -3,12 +3,43 @@
 #include "../render/shader.h"
 #include <iostream>
 
-GLuint GroundPlane::sharedProgramID = 0;
-GLuint GroundPlane::sharedMvpMatrixID = 0;
-GLuint GroundPlane::sharedTextureSamplerID = 0;
-bool GroundPlane::shadersLoaded = false;
+GroundPlane::GroundPlane()
+    : programID(0), mvpMatrixID(0), textureSamplerID(0), textureID(0),
+      vertexArrayID(0), vertexBufferID(0), colorBufferID(0),
+      uvBufferID(0), indexBufferID(0) {
+}
+
+GroundPlane::~GroundPlane() {
+    cleanup();
+}
+
+GLuint GroundPlane::loadGroundShaders() {
+    return LoadShadersFromFile("../scene/shaders/ground.vert",
+                              "../scene/shaders/ground.frag");
+}
 
 void GroundPlane::initialize() {
+    GLint prevProgram, prevVAO, prevArrayBuffer, prevElementBuffer;
+    glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
+    glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &prevVAO);
+    glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &prevArrayBuffer);
+    glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &prevElementBuffer);
+
+    GLint attribEnabled[4];
+    for (int i = 0; i < 4; i++) {
+        glGetVertexAttribiv(i, GL_VERTEX_ATTRIB_ARRAY_ENABLED, &attribEnabled[i]);
+    }
+
+    programID = loadGroundShaders();
+    if (programID == 0) {
+        std::cerr << "FAILED TO LOAD GROUND SHADERS!" << std::endl;
+        restoreState(prevProgram, prevVAO, prevArrayBuffer, prevElementBuffer, attribEnabled);
+        return;
+    }
+
+    mvpMatrixID = glGetUniformLocation(programID, "MVP");
+    textureSamplerID = glGetUniformLocation(programID, "textureSampler");
+
     GLfloat vertex_buffer_data[12] = {
         -250.0f, 0.0f, -250.0f,
         -250.0f, 0.0f, 250.0f,
@@ -40,49 +71,62 @@ void GroundPlane::initialize() {
 
     glGenBuffers(1, &vertexBufferID);
     glBindBuffer(GL_ARRAY_BUFFER, vertexBufferID);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_buffer_data), vertex_buffer_data, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_buffer_data),
+                 vertex_buffer_data, GL_STATIC_DRAW);
 
     glGenBuffers(1, &colorBufferID);
     glBindBuffer(GL_ARRAY_BUFFER, colorBufferID);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(color_buffer_data), color_buffer_data, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(color_buffer_data),
+                 color_buffer_data, GL_STATIC_DRAW);
 
     glGenBuffers(1, &uvBufferID);
     glBindBuffer(GL_ARRAY_BUFFER, uvBufferID);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(uv_buffer_data), uv_buffer_data, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(uv_buffer_data),
+                 uv_buffer_data, GL_STATIC_DRAW);
 
     glGenBuffers(1, &indexBufferID);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBufferID);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(index_buffer_data), index_buffer_data, GL_STATIC_DRAW);
-
-    if (!shadersLoaded) {
-        sharedProgramID = LoadShadersFromFile("../scene/shaders/ground.vert", "../scene/shaders/ground.frag");
-        if (sharedProgramID == 0) {
-            std::cerr << "FAILED TO LOAD GROUND SHADERS!" << std::endl;
-            return;
-        }
-
-        sharedMvpMatrixID = glGetUniformLocation(sharedProgramID, "MVP");
-        sharedTextureSamplerID = glGetUniformLocation(sharedProgramID, "textureSampler");
-        shadersLoaded = true;
-    }
-
-    programID = sharedProgramID;
-    mvpMatrixID = sharedMvpMatrixID;
-    textureSamplerID = sharedTextureSamplerID;
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(index_buffer_data),
+                 index_buffer_data, GL_STATIC_DRAW);
 
     TextureManager& tm = TextureManager::getInstance();
     int facade = 1 + std::rand() % 2;
     textureID = tm.getTexture("../scene/textures/snowy_ground0" + std::to_string(facade) + ".jpg");
 
-    textureSamplerID = glGetUniformLocation(programID,"textureSampler");
+    glBindVertexArray(0);
+    restoreState(prevProgram, prevVAO, prevArrayBuffer, prevElementBuffer, attribEnabled);
+}
+
+void GroundPlane::restoreState(GLint program, GLint vao, GLint arrayBuffer,
+                              GLint elementBuffer, GLint attribEnabled[4]) {
+    glUseProgram(program);
+    glBindVertexArray(vao);
+    glBindBuffer(GL_ARRAY_BUFFER, arrayBuffer);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementBuffer);
+
+    for (int i = 0; i < 4; i++) {
+        if (attribEnabled[i]) {
+            glEnableVertexAttribArray(i);
+        } else {
+            glDisableVertexAttribArray(i);
+        }
+    }
 }
 
 void GroundPlane::render(glm::mat4 cameraMatrix) {
+    GLint prevProgram, prevVAO, prevArrayBuffer, prevElementBuffer;
+    glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
+    glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &prevVAO);
+    glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &prevArrayBuffer);
+    glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &prevElementBuffer);
 
-    GLint currentProgram;
-    glGetIntegerv(GL_CURRENT_PROGRAM, &currentProgram);
+    GLint attribEnabled[4];
+    for (int i = 0; i < 4; i++) {
+        glGetVertexAttribiv(i, GL_VERTEX_ATTRIB_ARRAY_ENABLED, &attribEnabled[i]);
+    }
 
     glUseProgram(programID);
+    glBindVertexArray(vertexArrayID);
 
     glEnableVertexAttribArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, vertexBufferID);
@@ -108,14 +152,22 @@ void GroundPlane::render(glm::mat4 cameraMatrix) {
 
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
 
-    GLenum err = glGetError();
-    if (err != GL_NO_ERROR) {
-        std::cout << "GROUND ERROR: OpenGL error " << err << " after draw" << std::endl;
-    }
-
     glDisableVertexAttribArray(2);
     glDisableVertexAttribArray(1);
     glDisableVertexAttribArray(0);
+
+    glBindBuffer(GL_ARRAY_BUFFER, prevArrayBuffer);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, prevElementBuffer);
+    glBindVertexArray(prevVAO);
+    glUseProgram(prevProgram);
+
+    for (int i = 0; i < 4; i++) {
+        if (attribEnabled[i]) {
+            glEnableVertexAttribArray(i);
+        } else {
+            glDisableVertexAttribArray(i);
+        }
+    }
 }
 
 void GroundPlane::cleanup() {
@@ -124,5 +176,4 @@ void GroundPlane::cleanup() {
     if (indexBufferID) glDeleteBuffers(1, &indexBufferID);
     if (vertexArrayID) glDeleteVertexArrays(1, &vertexArrayID);
     if (uvBufferID) glDeleteBuffers(1, &uvBufferID);
-    if (programID) glDeleteProgram(programID);
 }
