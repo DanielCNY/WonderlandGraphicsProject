@@ -20,8 +20,8 @@ void Chunk::render(const glm::mat4& viewProjectionMatrix) {
     glm::mat4 groundMvp = viewProjectionMatrix * groundModelMatrix;
     ground.render(groundMvp);
 
-    float centerX = chunkX * SIZE + SIZE / 2.0f;
-    float centerZ = chunkZ * SIZE + SIZE / 2.0f;
+    float centerX = chunkX * SIZE - SIZE / 2.0f + 60;
+    float centerZ = chunkZ * SIZE + SIZE / 2.0f - 20;
 
     glm::mat4 treeModelMatrix = glm::mat4(1.0f);
     treeModelMatrix = glm::translate(treeModelMatrix,

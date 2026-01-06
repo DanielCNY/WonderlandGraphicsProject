@@ -14,11 +14,62 @@
 
 #define BUFFER_OFFSET(i) ((char *)NULL + (i))
 
-StaticModel::StaticModel() : programID(0), mvpMatrixID(0), textureSamplerID(0) {
+std::unordered_map<std::string, std::shared_ptr<StaticModel::ModelCache>> StaticModel::modelCache;
+
+StaticModel::StaticModel() : cachedModel(nullptr) {
 }
 
 StaticModel::~StaticModel() {
     cleanup();
+}
+
+StaticModel::StaticModel(StaticModel&& other) noexcept
+    : modelFilename(std::move(other.modelFilename)),
+      cachedModel(std::move(other.cachedModel)) {
+    other.modelFilename.clear();
+    other.cachedModel.reset();
+}
+
+StaticModel& StaticModel::operator=(StaticModel&& other) noexcept {
+    if (this != &other) {
+        cleanup();
+        modelFilename = std::move(other.modelFilename);
+        cachedModel = std::move(other.cachedModel);
+        other.modelFilename.clear();
+        other.cachedModel.reset();
+    }
+    return *this;
+}
+
+StaticModel::ModelCache::~ModelCache() {
+    cleanup();
+}
+
+void StaticModel::ModelCache::cleanup() {
+    for (auto& primitive : primitiveObjects) {
+        if (primitive.vao) {
+            glDeleteVertexArrays(1, &primitive.vao);
+            primitive.vao = 0;
+        }
+
+        for (auto vbo : primitive.vbos) {
+            glDeleteBuffers(1, &vbo);
+        }
+        primitive.vbos.clear();
+
+        if (primitive.textureID && !primitive.isTextureFromManager) {
+            glDeleteTextures(1, &primitive.textureID);
+            primitive.textureID = 0;
+        }
+    }
+    primitiveObjects.clear();
+
+    if (programID) {
+        glDeleteProgram(programID);
+        programID = 0;
+        mvpMatrixID = 0;
+        textureSamplerID = 0;
+    }
 }
 
 GLuint StaticModel::loadTextureFromMemory(const unsigned char* data, int width, int height, int channels) {
@@ -59,15 +110,22 @@ GLuint StaticModel::createDefaultTexture() {
     return textureID;
 }
 
-bool StaticModel::loadModel(const char* filename) {
-    cleanup();
+std::shared_ptr<StaticModel::ModelCache> StaticModel::loadModelToCache(const char* filename) {
+    auto it = modelCache.find(filename);
+    if (it != modelCache.end()) {
+        it->second->referenceCount++;
+        return it->second;
+    }
+
+    std::cout << "Loading model to cache: " << filename << std::endl;
+
+    auto cache = std::make_shared<ModelCache>();
 
     GLint prevProgram, prevVAO, prevArrayBuffer, prevElementBuffer;
     GLboolean prevDepthTest, prevCullFace;
     GLint attribEnabled[4];
 
-    saveOpenGLState(prevProgram, prevVAO, prevArrayBuffer, prevElementBuffer,
-                   prevDepthTest, prevCullFace, attribEnabled);
+    saveOpenGLState(prevProgram, prevVAO, prevArrayBuffer, prevElementBuffer,prevDepthTest, prevCullFace, attribEnabled);
 
     tinygltf::TinyGLTF loader;
     tinygltf::Model model;
@@ -77,34 +135,30 @@ bool StaticModel::loadModel(const char* filename) {
     bool res = loader.LoadASCIIFromFile(&model, &err, &warn, filename);
 
     if (!res) {
-        std::cout << "Failed to load glTF: " << filename << std::endl;
+        std::cout << "Failed to load glTF: " << filename << " - " << err << std::endl;
         restoreOpenGLState(prevProgram, prevVAO, prevArrayBuffer, prevElementBuffer,
                           prevDepthTest, prevCullFace, attribEnabled);
-        return false;
+        return nullptr;
     }
 
     if (model.meshes.empty()) {
         std::cout << "Model has no meshes: " << filename << std::endl;
         restoreOpenGLState(prevProgram, prevVAO, prevArrayBuffer, prevElementBuffer,
                           prevDepthTest, prevCullFace, attribEnabled);
-        return false;
+        return nullptr;
     }
 
-    std::filesystem::path gltfPath(filename);
-    std::string directory = gltfPath.parent_path().string();
-    if (directory.empty()) directory = ".";
-
-    programID = LoadShadersFromFile("../scene/shaders/static_model.vert",
-                                   "../scene/shaders/static_model.frag");
-    if (programID == 0) {
+    cache->programID = LoadShadersFromFile("../scene/shaders/static_model.vert",
+                                          "../scene/shaders/static_model.frag");
+    if (cache->programID == 0) {
         std::cerr << "Failed to load static model shaders" << std::endl;
         restoreOpenGLState(prevProgram, prevVAO, prevArrayBuffer, prevElementBuffer,
                           prevDepthTest, prevCullFace, attribEnabled);
-        return false;
+        return nullptr;
     }
 
-    mvpMatrixID = glGetUniformLocation(programID, "MVP");
-    textureSamplerID = glGetUniformLocation(programID, "textureSampler");
+    cache->mvpMatrixID = glGetUniformLocation(cache->programID, "MVP");
+    cache->textureSamplerID = glGetUniformLocation(cache->programID, "textureSampler");
 
     const tinygltf::Mesh &mesh = model.meshes[0];
 
@@ -121,14 +175,18 @@ bool StaticModel::loadModel(const char* filename) {
 
         for (auto &attrib : primitive.attributes) {
             const tinygltf::Accessor &accessor = model.accessors[attrib.second];
+
+            if (accessor.bufferView < 0 || accessor.bufferView >= model.bufferViews.size()) {
+                continue;
+            }
+
             const tinygltf::BufferView &bufferView = model.bufferViews[accessor.bufferView];
             const tinygltf::Buffer &buffer = model.buffers[bufferView.buffer];
 
             GLuint vbo;
             glGenBuffers(1, &vbo);
             glBindBuffer(bufferView.target, vbo);
-            glBufferData(bufferView.target, bufferView.byteLength,
-                        &buffer.data.at(0) + bufferView.byteOffset, GL_STATIC_DRAW);
+            glBufferData(bufferView.target, bufferView.byteLength,&buffer.data.at(0) + bufferView.byteOffset, GL_STATIC_DRAW);
 
             primObj.vbos.push_back(vbo);
 
@@ -155,18 +213,21 @@ bool StaticModel::loadModel(const char* filename) {
 
         if (primitive.indices >= 0) {
             const tinygltf::Accessor &indexAccessor = model.accessors[primitive.indices];
-            const tinygltf::BufferView &indexBufferView = model.bufferViews[indexAccessor.bufferView];
-            const tinygltf::Buffer &indexBuffer = model.buffers[indexBufferView.buffer];
 
-            GLuint ebo;
-            glGenBuffers(1, &ebo);
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-            glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexBufferView.byteLength,
-                        &indexBuffer.data.at(0) + indexBufferView.byteOffset, GL_STATIC_DRAW);
+            if (indexAccessor.bufferView >= 0 && indexAccessor.bufferView < model.bufferViews.size()) {
+                const tinygltf::BufferView &indexBufferView = model.bufferViews[indexAccessor.bufferView];
+                const tinygltf::Buffer &indexBuffer = model.buffers[indexBufferView.buffer];
 
-            primObj.vbos.push_back(ebo);
-            primObj.indexCount = indexAccessor.count;
-            primObj.indexType = indexAccessor.componentType;
+                GLuint ebo;
+                glGenBuffers(1, &ebo);
+                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+                glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexBufferView.byteLength,
+                            &indexBuffer.data.at(0) + indexBufferView.byteOffset, GL_STATIC_DRAW);
+
+                primObj.vbos.push_back(ebo);
+                primObj.indexCount = indexAccessor.count;
+                primObj.indexType = indexAccessor.componentType;
+            }
         }
 
         GLuint textureID = 0;
@@ -184,21 +245,14 @@ bool StaticModel::loadModel(const char* filename) {
 
                         if (!image.uri.empty()) {
                             std::string texturePath = image.uri;
-                            std::cout << "Attempting to load texture from: " << texturePath << std::endl;
-
                             textureID = TextureManager::getInstance().getTexture(texturePath);
                             isTextureFromManager = (textureID != 0);
 
-                            if (textureID == 0) {
-                                std::cout << "WARNING: TextureManager failed to load: " << texturePath << std::endl;
-                                std::cout << "Trying to load directly from memory..." << std::endl;
-
-                                if (!image.image.empty()) {
-                                    textureID = loadTextureFromMemory(image.image.data(),
-                                                                    image.width,
-                                                                    image.height,
-                                                                    image.component);
-                                }
+                            if (textureID == 0 && !image.image.empty()) {
+                                textureID = loadTextureFromMemory(image.image.data(),
+                                                                image.width,
+                                                                image.height,
+                                                                image.component);
                             }
                         } else if (!image.image.empty()) {
                             textureID = loadTextureFromMemory(image.image.data(),
@@ -218,13 +272,36 @@ bool StaticModel::loadModel(const char* filename) {
         primObj.textureID = textureID;
         primObj.isTextureFromManager = isTextureFromManager;
 
-        primitiveObjects.push_back(primObj);
+        cache->primitiveObjects.push_back(primObj);
         glBindVertexArray(0);
     }
 
     restoreOpenGLState(prevProgram, prevVAO, prevArrayBuffer, prevElementBuffer,
                       prevDepthTest, prevCullFace, attribEnabled);
 
+    if (cache->primitiveObjects.empty()) {
+        return nullptr;
+    }
+
+    cache->referenceCount = 1;
+    modelCache[filename] = cache;
+
+    std::cout << "Model cached successfully: " << filename
+              << " (primitives: " << cache->primitiveObjects.size()
+              << ", textures loaded)" << std::endl;
+
+    return cache;
+}
+
+bool StaticModel::loadModel(const char* filename) {
+    cleanup();
+
+    cachedModel = loadModelToCache(filename);
+    if (!cachedModel) {
+        return false;
+    }
+
+    modelFilename = filename;
     return true;
 }
 
@@ -265,7 +342,9 @@ void StaticModel::restoreOpenGLState(GLint program, GLint vao, GLint arrayBuffer
 }
 
 void StaticModel::render(const glm::mat4& cameraMatrix) {
-    if (programID == 0 || primitiveObjects.empty()) return;
+    if (!cachedModel || cachedModel->programID == 0 || cachedModel->primitiveObjects.empty()) {
+        return;
+    }
 
     GLint prevProgram, prevVAO, prevArrayBuffer, prevElementBuffer;
     GLboolean prevDepthTest, prevCullFace;
@@ -273,21 +352,19 @@ void StaticModel::render(const glm::mat4& cameraMatrix) {
     saveOpenGLState(prevProgram, prevVAO, prevArrayBuffer, prevElementBuffer,
                    prevDepthTest, prevCullFace, attribEnabled);
 
-    glUseProgram(programID);
-    glUniformMatrix4fv(mvpMatrixID, 1, GL_FALSE, &cameraMatrix[0][0]);
+    glUseProgram(cachedModel->programID);
+    glUniformMatrix4fv(cachedModel->mvpMatrixID, 1, GL_FALSE, &cameraMatrix[0][0]);
 
     glActiveTexture(GL_TEXTURE0);
-    glUniform1i(textureSamplerID, 0);
+    glUniform1i(cachedModel->textureSamplerID, 0);
 
-    for (const auto& primitive : primitiveObjects) {
+    for (const auto& primitive : cachedModel->primitiveObjects) {
         glBindTexture(GL_TEXTURE_2D, primitive.textureID);
         glBindVertexArray(primitive.vao);
 
         if (primitive.indexCount > 0) {
             glDrawElements(primitive.mode, primitive.indexCount,
                          primitive.indexType, nullptr);
-        } else {
-            glDrawArrays(primitive.mode, 0, 36);
         }
 
         glBindVertexArray(0);
@@ -298,26 +375,22 @@ void StaticModel::render(const glm::mat4& cameraMatrix) {
 }
 
 void StaticModel::cleanup() {
-    for (auto& primitive : primitiveObjects) {
-        if (primitive.vao) {
-            glDeleteVertexArrays(1, &primitive.vao);
+    if (cachedModel) {
+        auto it = modelCache.find(modelFilename);
+        if (it != modelCache.end()) {
+            it->second->referenceCount--;
+            if (it->second->referenceCount <= 0) {
+                modelCache.erase(it);
+                std::cout << "Model removed from cache: " << modelFilename << std::endl;
+            }
         }
-
-        for (auto vbo : primitive.vbos) {
-            glDeleteBuffers(1, &vbo);
-        }
-        primitive.vbos.clear();
-
-        if (primitive.textureID && !primitive.isTextureFromManager) {
-            glDeleteTextures(1, &primitive.textureID);
-        }
+        cachedModel.reset();
     }
-    primitiveObjects.clear();
+    modelFilename.clear();
+}
 
-    if (programID) {
-        glDeleteProgram(programID);
-        programID = 0;
-        mvpMatrixID = 0;
-        textureSamplerID = 0;
-    }
+void StaticModel::cleanupAll() {
+    std::cout << "Cleaning up all cached models..." << std::endl;
+    modelCache.clear();
+    std::cout << "All models cleared from cache." << std::endl;
 }
