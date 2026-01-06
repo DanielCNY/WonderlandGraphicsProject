@@ -49,12 +49,16 @@ void Chunk::generateTrees()
     }
 }
 
-void Chunk::render(const glm::mat4& viewProjectionMatrix) {
+void Chunk::render(const glm::mat4& viewProjectionMatrix,
+                const glm::vec3& lightPosition,
+                const glm::vec3& lightIntensity,
+                const glm::vec3& ambientLight,
+                const glm::vec3& viewPosition) {
     glm::mat4 groundModelMatrix = glm::mat4(1.0f);
     groundModelMatrix = glm::translate(groundModelMatrix,
                                       glm::vec3(chunkX * SIZE, 0.0f, chunkZ * SIZE));
     glm::mat4 groundMvp = viewProjectionMatrix * groundModelMatrix;
-    ground.render(groundMvp);
+    ground.render(groundModelMatrix, viewProjectionMatrix, lightPosition, lightIntensity, ambientLight, viewPosition);
 
     float centerX = chunkX * SIZE - SIZE / 2.0f + 300;
     float centerZ = chunkZ * SIZE + SIZE / 2.0f - 300;
@@ -71,6 +75,6 @@ void Chunk::render(const glm::mat4& viewProjectionMatrix) {
         treeModelMatrix = glm::scale(treeModelMatrix, glm::vec3(t.scale, t.scale, t.scale));
 
         glm::mat4 treeMvp = viewProjectionMatrix * treeModelMatrix;
-        tree.render(treeMvp);
+        tree.render(treeModelMatrix, viewProjectionMatrix, lightPosition, lightIntensity, ambientLight, viewPosition);
     }
 }

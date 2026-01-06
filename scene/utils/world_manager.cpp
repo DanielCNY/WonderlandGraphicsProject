@@ -51,8 +51,12 @@ void WorldManager::update(const glm::vec3& cameraPos) {
     }
 }
 
-void WorldManager::render(const glm::mat4& viewProjectionMatrix) {
+void WorldManager::render(const glm::mat4& viewProjectionMatrix,
+                         const glm::vec3& lightPosition,
+                         const glm::vec3& lightIntensity,
+                         const glm::vec3& ambientLight,
+                         const glm::vec3& viewPosition) {
     for (auto& pair : chunkMap) {
-        pair.second->render(viewProjectionMatrix);
+        pair.second->render(viewProjectionMatrix, lightPosition, lightIntensity, ambientLight, viewPosition);
     }
 }

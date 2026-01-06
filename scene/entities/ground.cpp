@@ -6,7 +6,7 @@
 GroundPlane::GroundPlane()
     : programID(0), mvpMatrixID(0), textureSamplerID(0), textureID(0),
       vertexArrayID(0), vertexBufferID(0), colorBufferID(0),
-      uvBufferID(0), indexBufferID(0) {
+      uvBufferID(0), indexBufferID(0), normalBufferID(0) {
 }
 
 GroundPlane::~GroundPlane() {
@@ -37,8 +37,14 @@ void GroundPlane::initialize() {
         return;
     }
 
-    mvpMatrixID = glGetUniformLocation(programID, "MVP");
     textureSamplerID = glGetUniformLocation(programID, "textureSampler");
+    modelMatrixID = glGetUniformLocation(programID, "modelMatrix");
+    viewProjectionMatrixID = glGetUniformLocation(programID, "viewProjectionMatrix");
+    mvpMatrixID = glGetUniformLocation(programID, "MVP");
+    lightPositionID = glGetUniformLocation(programID, "lightPosition");
+    lightIntensityID = glGetUniformLocation(programID, "lightIntensity");
+    ambientLightID = glGetUniformLocation(programID, "ambientLight");
+    viewPositionID = glGetUniformLocation(programID, "viewPosition");
 
     GLfloat vertex_buffer_data[12] = {
         -500.0f, 0.0f, -500.0f,
@@ -66,6 +72,13 @@ void GroundPlane::initialize() {
         2.0f, 0.0f,
     };
 
+    GLfloat normal_buffer_data[12] = {
+        0.0f, 1.0f, 0.0f,
+        0.0f, 1.0f, 0.0f,
+        0.0f, 1.0f, 0.0f,
+        0.0f, 1.0f, 0.0f
+    };
+
     glGenVertexArrays(1, &vertexArrayID);
     glBindVertexArray(vertexArrayID);
 
@@ -88,6 +101,11 @@ void GroundPlane::initialize() {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBufferID);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(index_buffer_data),
                  index_buffer_data, GL_STATIC_DRAW);
+
+    glGenBuffers(1, &normalBufferID);
+    glBindBuffer(GL_ARRAY_BUFFER, normalBufferID);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(normal_buffer_data),
+                 normal_buffer_data, GL_STATIC_DRAW);
 
     TextureManager& tm = TextureManager::getInstance();
     int facade = 1 + std::rand() % 2;
@@ -113,7 +131,8 @@ void GroundPlane::restoreState(GLint program, GLint vao, GLint arrayBuffer,
     }
 }
 
-void GroundPlane::render(glm::mat4 cameraMatrix) {
+void GroundPlane::render(const glm::mat4& modelMatrix, const glm::mat4& viewProjectionMatrix, const glm::vec3& lightPosition,
+                                const glm::vec3& lightIntensity, const glm::vec3& ambientLight, const glm::vec3& viewPosition) {
     GLint prevProgram, prevVAO, prevArrayBuffer, prevElementBuffer;
     glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
     glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &prevVAO);
@@ -126,6 +145,16 @@ void GroundPlane::render(glm::mat4 cameraMatrix) {
     }
 
     glUseProgram(programID);
+
+    glm::mat4 mvp = viewProjectionMatrix * modelMatrix;
+    glUniformMatrix4fv(mvpMatrixID, 1, GL_FALSE, &mvp[0][0]);
+    glUniformMatrix4fv(modelMatrixID, 1, GL_FALSE, &modelMatrix[0][0]);
+    glUniformMatrix4fv(viewProjectionMatrixID, 1, GL_FALSE, &viewProjectionMatrix[0][0]);
+    glUniform3fv(lightPositionID, 1, &lightPosition[0]);
+    glUniform3fv(lightIntensityID, 1, &lightIntensity[0]);
+    glUniform3fv(ambientLightID, 1, &ambientLight[0]);
+    glUniform3fv(viewPositionID, 1, &viewPosition[0]);
+
     glBindVertexArray(vertexArrayID);
 
     glEnableVertexAttribArray(0);
@@ -142,13 +171,13 @@ void GroundPlane::render(glm::mat4 cameraMatrix) {
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBufferID);
 
+    glEnableVertexAttribArray(3);
+    glBindBuffer(GL_ARRAY_BUFFER, normalBufferID);
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 0, 0);
+
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, textureID);
     glUniform1i(textureSamplerID, 0);
-
-    glm::mat4 modelMatrix = glm::mat4(1.0f);
-    glm::mat4 mvp = cameraMatrix * modelMatrix;
-    glUniformMatrix4fv(mvpMatrixID, 1, GL_FALSE, &mvp[0][0]);
 
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
 

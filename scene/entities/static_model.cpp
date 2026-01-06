@@ -157,7 +157,13 @@ std::shared_ptr<StaticModel::ModelCache> StaticModel::loadModelToCache(const cha
         return nullptr;
     }
 
+    cache->modelMatrixID = glGetUniformLocation(cache->programID, "modelMatrix");
+    cache->viewProjectionMatrixID = glGetUniformLocation(cache->programID, "viewProjectionMatrix");
     cache->mvpMatrixID = glGetUniformLocation(cache->programID, "MVP");
+    cache->lightPositionID = glGetUniformLocation(cache->programID, "lightPosition");
+    cache->lightIntensityID = glGetUniformLocation(cache->programID, "lightIntensity");
+    cache->ambientLightID = glGetUniformLocation(cache->programID, "ambientLight");
+    cache->viewPositionID = glGetUniformLocation(cache->programID, "viewPosition");
     cache->textureSamplerID = glGetUniformLocation(cache->programID, "textureSampler");
 
     const tinygltf::Mesh &mesh = model.meshes[0];
@@ -341,7 +347,8 @@ void StaticModel::restoreOpenGLState(GLint program, GLint vao, GLint arrayBuffer
     }
 }
 
-void StaticModel::render(const glm::mat4& cameraMatrix) {
+void StaticModel::render(const glm::mat4& modelMatrix, const glm::mat4& viewProjectionMatrix, const glm::vec3& lightPosition,
+                        const glm::vec3& lightIntensity, const glm::vec3& ambientLight, const glm::vec3& viewPosition) {
     if (!cachedModel || cachedModel->programID == 0 || cachedModel->primitiveObjects.empty()) {
         return;
     }
@@ -353,7 +360,14 @@ void StaticModel::render(const glm::mat4& cameraMatrix) {
                    prevDepthTest, prevCullFace, attribEnabled);
 
     glUseProgram(cachedModel->programID);
-    glUniformMatrix4fv(cachedModel->mvpMatrixID, 1, GL_FALSE, &cameraMatrix[0][0]);
+
+    glm::mat4 mvp = viewProjectionMatrix * modelMatrix;
+    glUniformMatrix4fv(cachedModel->mvpMatrixID, 1, GL_FALSE, &mvp[0][0]);
+    glUniformMatrix4fv(cachedModel->modelMatrixID, 1, GL_FALSE, &modelMatrix[0][0]);
+    glUniform3fv(cachedModel->lightPositionID, 1, &lightPosition[0]);
+    glUniform3fv(cachedModel->lightIntensityID, 1, &lightIntensity[0]);
+    glUniform3fv(cachedModel->ambientLightID, 1, &ambientLight[0]);
+    glUniform3fv(cachedModel->viewPositionID, 1, &viewPosition[0]);
 
     glActiveTexture(GL_TEXTURE0);
     glUniform1i(cachedModel->textureSamplerID, 0);

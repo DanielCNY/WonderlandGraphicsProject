@@ -26,6 +26,10 @@ static float FoV = 60.0f;
 static float zNear = 1.0f;
 static float zFar = 20000.0f;
 
+static glm::vec3 lightPosition(0.0f, 1000.0f, 0.0f);
+static glm::vec3 lightIntensity(1.0f, 1.0f, 1.0f);
+static glm::vec3 ambientLight(0.2f, 0.2f, 0.25f);
+
 // Mouse movement
 static float yaw = -90.0f;
 static float pitch = 0.0f;
@@ -335,7 +339,7 @@ int main(void)
     	skybox.render(projectionMatrix * skyboxView);
 
     	worldManager.update(eye_center);
-    	worldManager.render(vp);
+    	worldManager.render(vp, lightPosition, lightIntensity, ambientLight, eye_center);
 
         // Swap buffers
         glfwSwapBuffers(window);

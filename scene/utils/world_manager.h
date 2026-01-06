@@ -24,7 +24,8 @@ public:
     ~WorldManager();
 
     void update(const glm::vec3& cameraPos);
-    void render(const glm::mat4& viewProjectionMatrix);
+    void render(const glm::mat4& viewProjectionMatrix, const glm::vec3& lightPosition, const glm::vec3& lightIntensity,
+                        const glm::vec3& ambientLight, const glm::vec3& viewPosition);
     void setMarkedForRemoval(bool marked) { markedForRemoval = marked; }
     bool isMarkedForRemoval() const { return markedForRemoval; }
 

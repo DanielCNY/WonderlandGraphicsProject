@@ -19,7 +19,8 @@ public:
     Chunk(int x, int z);
     void initialize();
     void generateTrees();
-    void render(const glm::mat4& viewProjectionMatrix);
+    void render(const glm::mat4& viewProjectionMatrix, const glm::vec3& lightPosition, const glm::vec3& lightIntensity,
+                        const glm::vec3& ambientLight, const glm::vec3& viewPosition);
     bool isVisible(const glm::vec3& cameraPos) const;
 
 private:

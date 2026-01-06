@@ -4,6 +4,13 @@
 
 class GroundPlane {
 private:
+    GLuint modelMatrixID;
+    GLuint viewProjectionMatrixID;
+    GLuint lightPositionID;
+    GLuint lightIntensityID;
+    GLuint ambientLightID;
+    GLuint viewPositionID;
+
     GLuint programID;
     GLuint mvpMatrixID;
     GLuint textureSamplerID;
@@ -13,6 +20,7 @@ private:
     GLuint colorBufferID;
     GLuint uvBufferID;
     GLuint indexBufferID;
+    GLuint normalBufferID;
 
     
 public:
@@ -20,7 +28,8 @@ public:
     ~GroundPlane();
     
     void initialize();
-    void render(glm::mat4 cameraMatrix);
+    void render(const glm::mat4& modelMatrix , const glm::mat4& viewProjectionMatrix, const glm::vec3& lightPosition,
+                         const glm::vec3& lightIntensity, const glm::vec3& ambientLight, const glm::vec3& viewPosition);
     void restoreState(GLint program, GLint vao, GLint arrayBuffer,
                             GLint elementBuffer, GLint attribEnabled[4]);
     void cleanup();

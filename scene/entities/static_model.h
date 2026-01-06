@@ -19,9 +19,15 @@ private:
     };
 
     struct ModelCache {
-        GLuint programID = 0;
-        GLuint mvpMatrixID = 0;
-        GLuint textureSamplerID = 0;
+        GLuint programID;
+        GLuint modelMatrixID;
+        GLuint viewProjectionMatrixID;
+        GLuint mvpMatrixID;
+        GLuint lightPositionID;
+        GLuint lightIntensityID;
+        GLuint ambientLightID;
+        GLuint viewPositionID;
+        GLuint textureSamplerID;
         std::vector<PrimitiveObject> primitiveObjects;
         int referenceCount = 0;
 
@@ -55,7 +61,8 @@ public:
     StaticModel& operator=(StaticModel&& other) noexcept;
 
     bool loadModel(const char* filename);
-    void render(const glm::mat4& cameraMatrix);
+    void render(const glm::mat4& modelMatrix, const glm::mat4& viewProjectionMatrix, const glm::vec3& lightPosition,
+                        const glm::vec3& lightIntensity, const glm::vec3& ambientLight, const glm::vec3& viewPosition);
     void cleanup();
 
     static void cleanupAll();
