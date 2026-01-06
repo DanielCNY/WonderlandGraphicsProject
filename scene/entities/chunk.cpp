@@ -1,7 +1,5 @@
 #include "chunk.h"
 #include <glm/gtc/matrix_transform.hpp>
-#include "utils/procedural_generator.h"
-#include <cmath>
 #include <random>
 #include <algorithm>
 #include <iostream>
