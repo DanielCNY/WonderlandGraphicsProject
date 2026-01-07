@@ -29,12 +29,15 @@ private:
     int chunkX, chunkZ;
     int seed;
     int numTrees;
-    bool willAppear;
+    bool giantAppear;
+    bool caneAppear;
 
     GroundPlane ground;
 
     StaticModel tree;
     std::vector<Transformation> treeTransforms;
+
+    StaticModel cane;
 
     AnimatedModel bot;
 

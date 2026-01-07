@@ -15,13 +15,20 @@ void Chunk::initialize() {
     std::uniform_int_distribution<int> countDist(0, 9);
     numTrees = countDist(rng);
     std::uniform_int_distribution<int> spawnDist(0, 5);
-    willAppear = (spawnDist(rng) == 1);
+    giantAppear = (spawnDist(rng) == 3);
+    caneAppear = (spawnDist(rng) < 3);
 
-    if (numTrees == 0) {
+    if (numTrees == 0 && giantAppear) {
         if (!bot.loadModel("../scene/entities/models/bot/bot.gltf")) {
             std::cerr << "Failed to load bot model" << std::endl;
         }
-    } else {
+    }
+    else if (numTrees == 0 && caneAppear) {
+        if (!cane.loadModel("../scene/entities/models/candy_cane/cane.gltf")) {
+            std::cerr << "Failed to load candy_cane model" << std::endl;
+        }
+    }
+    else {
         if (!tree.loadModel("../scene/entities/models/fir_tree/winter_fir.gltf")) {
             std::cerr << "Failed to load fir_tree model" << std::endl;
         }
@@ -31,7 +38,7 @@ void Chunk::initialize() {
 }
 
 void Chunk::update(float deltaTime, float globalTime) {
-    if (numTrees == 0) {
+    if (numTrees == 0 && giantAppear) {
         bot.update(deltaTime, globalTime);
     }
 }
@@ -73,11 +80,25 @@ void Chunk::render(const glm::mat4& viewProjectionMatrix, const glm::vec3& light
     float centerX = chunkX * SIZE - (SIZE / 2.0f) + 300.0f;
     float centerZ = chunkZ * SIZE + (SIZE / 2.0f) - 300.0f;
 
-    if (numTrees == 0 && willAppear) {
+    if (numTrees == 0 && giantAppear) {
         glm::mat4 botModelMatrix = glm::mat4(1.0f);
         botModelMatrix = glm::translate(botModelMatrix, glm::vec3(centerX, -135.0f, centerZ));
         botModelMatrix = glm::scale(botModelMatrix, glm::vec3(4.0f, 4.0f, 4.0f));
         bot.render(botModelMatrix, viewProjectionMatrix, lightPosition, lightIntensity, viewPosition);
+    }
+    else if (numTrees == 0 && caneAppear) {
+        std::mt19937 rng(seed);
+        std::uniform_real_distribution<float> scaleDist(50.0f, 150.0f);
+        std::uniform_real_distribution<float> rotationDist(0.0f, 360.0f);
+        float newScale = scaleDist(rng);
+        glm::mat4 caneModelMatrix = glm::mat4(1.0f);
+        caneModelMatrix = glm::translate(caneModelMatrix, glm::vec3(centerX, -50.0f, centerZ));
+        caneModelMatrix = glm::rotate(caneModelMatrix, glm::radians(90.0f),
+                                    glm::vec3(-1.0f, 0.0f, 0.0f));
+        caneModelMatrix = glm::rotate(caneModelMatrix, glm::radians(rotationDist(rng)),
+                                    glm::vec3(0.0f, 0.0f, 1.0f));
+        caneModelMatrix = glm::scale(caneModelMatrix, glm::vec3(newScale, newScale, newScale));
+        cane.render(caneModelMatrix, viewProjectionMatrix, lightPosition, lightIntensity, viewPosition);
     }
     else if (numTrees > 0)
     {

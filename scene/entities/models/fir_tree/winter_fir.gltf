@@ -152,10 +152,10 @@
   ],
   "images": [
     {
-      "uri": "../scene/textures/Material__3_baseColor.png"
+      "uri": "../scene/textures/treeColor_3.png"
     },
     {
-      "uri": "../scene/textures/Material__4_baseColor.png"
+      "uri": "../scene/textures/treeColor_4.png"
     }
   ],
   "materials": [
