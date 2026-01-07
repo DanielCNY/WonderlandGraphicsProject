@@ -23,6 +23,7 @@ add_executable(main
 		scene/entities/ground.cpp
         scene/entities/chunk.cpp
 		scene/entities/static_model.cpp
+		scene/entities/animated_model.cpp
 	scene/render/shader.cpp
 )
 

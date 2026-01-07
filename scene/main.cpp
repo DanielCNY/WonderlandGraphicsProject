@@ -2,11 +2,9 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-
 #include "utils/world_manager.h"
 #include "render/shader.h"
 #include "utils/texture_manager.h"
-
 #include <iostream>
 #include <iomanip>
 
@@ -37,8 +35,6 @@ static bool firstMouse = true;
 static float lastX = 512.0f;
 static float lastY = 384.0f;
 static float sensitivity = 0.1f;
-
-WorldManager worldManager;
 
 struct Skybox {
 	glm::vec3 position;
@@ -304,6 +300,8 @@ int main(void)
     glm::mat4 projectionMatrix = glm::perspective(glm::radians(FoV), (float)windowWidth / windowHeight, zNear, zFar);
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
+	WorldManager worldManager;
+
 	Skybox skybox;
 	skybox.initialize(glm::vec3(0, 2000, 0), glm::vec3(7500, 7500, 7500));
 
@@ -316,7 +314,6 @@ int main(void)
         glm::mat4 viewMatrix = glm::lookAt(eye_center, lookat, up);
         glm::mat4 vp = projectionMatrix * viewMatrix;
 
-    	// Calculate FPS
     	double currentTime = glfwGetTime();
     	frameCount++;
 
@@ -345,7 +342,6 @@ int main(void)
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
-
 	skybox.cleanup();
     glfwTerminate();
     return 0;

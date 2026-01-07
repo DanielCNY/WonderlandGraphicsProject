@@ -1,6 +1,5 @@
 #ifndef WORLD_MANAGER_H
 #define WORLD_MANAGER_H
-
 #include <glm/glm.hpp>
 #include <vector>
 #include <memory>

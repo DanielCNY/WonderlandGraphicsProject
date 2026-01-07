@@ -6,12 +6,10 @@
 #include <map>
 #include <string>
 #include <filesystem>
-
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <tinygltf-2.9.3/tiny_gltf.h>
-
 #define BUFFER_OFFSET(i) ((char *)NULL + (i))
 
 std::unordered_map<std::string, std::shared_ptr<StaticModel::ModelCache>> StaticModel::modelCache;

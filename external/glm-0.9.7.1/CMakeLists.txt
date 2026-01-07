@@ -154,14 +154,14 @@ write_basic_package_version_file(
     COMPATIBILITY AnyNewerVersion
 )
 
-# build tree package config
+# build fir_tree package config
 configure_file(
     cmake/glmBuildConfig.cmake.in
     glmConfig.cmake
     @ONLY
 )
 
-# install tree package config
+# install fir_tree package config
 configure_package_config_file(
     cmake/glmConfig.cmake.in
     ${GLM_INSTALL_CONFIGDIR}/glmConfig.cmake

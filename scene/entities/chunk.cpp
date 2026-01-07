@@ -14,17 +14,27 @@ void Chunk::initialize() {
     std::mt19937 rng(seed);
     std::uniform_int_distribution<int> countDist(0, 9);
     numTrees = countDist(rng);
+    std::uniform_int_distribution<int> spawnDist(0, 5);
+    willAppear = (spawnDist(rng) == 1);
 
-    if (!tree.loadModel("../scene/entities/models/winter_fir.gltf")) {
-        std::cerr << "Failed to load tree model" << std::endl;
+    if (!bot.loadModel("../scene/entities/models/bot/bot.gltf")) {
+        std::cerr << "Failed to load bot model" << std::endl;
     }
-    generateTrees();
+    if (!tree.loadModel("../scene/entities/models/fir_tree/winter_fir.gltf")) {
+        std::cerr << "Failed to load fir_tree model" << std::endl;
+    }
+    else generateTrees();
+
+}
+
+void Chunk::update(float deltaTime) {
+    if (numTrees == 0) {
+        bot.update(deltaTime);
+    }
 }
 
 void Chunk::generateTrees()
 {
-    if (numTrees == 0) return;
-
     std::vector<glm::vec2> corners = {
         glm::vec2(0.0f, 0.0f),
         glm::vec2(250.0f, 0.0f),
@@ -60,21 +70,32 @@ void Chunk::render(const glm::mat4& viewProjectionMatrix,
     glm::mat4 groundMvp = viewProjectionMatrix * groundModelMatrix;
     ground.render(groundModelMatrix, viewProjectionMatrix, lightPosition, lightIntensity, ambientLight, viewPosition);
 
-    float centerX = chunkX * SIZE - SIZE / 2.0f + 300;
-    float centerZ = chunkZ * SIZE + SIZE / 2.0f - 300;
+    float centerX = chunkX * SIZE - (SIZE / 2.0f) + 300.0f;
+    float centerZ = chunkZ * SIZE + (SIZE / 2.0f) - 300.0f;
 
-    for (auto& t : treeTransforms)
+    if (numTrees == 0 && willAppear) {
+        glm::mat4 botModelMatrix = glm::mat4(1.0f);
+        botModelMatrix = glm::translate(botModelMatrix, glm::vec3(centerX, 10.0f, centerZ));
+        botModelMatrix = glm::rotate(botModelMatrix, glm::radians(90.0f),
+                                glm::vec3(1.0f, 0.0f, 0.0f));
+        botModelMatrix = glm::scale(botModelMatrix, glm::vec3(5.0f, 5.0f, 5.0f));
+        bot.render(botModelMatrix, viewProjectionMatrix, lightPosition, lightIntensity, ambientLight, viewPosition);
+    }
+    else
     {
-        glm::mat4 treeModelMatrix = glm::mat4(1.0f);
-        treeModelMatrix = glm::translate(treeModelMatrix, glm::vec3(centerX + t.translation.x,
-                               t.translation.y, centerZ + t.translation.z));
-        treeModelMatrix = glm::rotate(treeModelMatrix, glm::radians(90.0f),
-                                glm::vec3(-1.0f, 0.0f, 0.0f));
-        treeModelMatrix = glm::rotate(treeModelMatrix, glm::radians(t.rotation),
-                                glm::vec3(0.0f, 0.0f, 1.0f));
-        treeModelMatrix = glm::scale(treeModelMatrix, glm::vec3(t.scale, t.scale, t.scale));
+        for (auto& t : treeTransforms)
+        {
+            glm::mat4 treeModelMatrix = glm::mat4(1.0f);
+            treeModelMatrix = glm::translate(treeModelMatrix, glm::vec3(centerX + t.translation.x,
+                                   t.translation.y, centerZ + t.translation.z));
+            treeModelMatrix = glm::rotate(treeModelMatrix, glm::radians(90.0f),
+                                    glm::vec3(-1.0f, 0.0f, 0.0f));
+            treeModelMatrix = glm::rotate(treeModelMatrix, glm::radians(t.rotation),
+                                    glm::vec3(0.0f, 0.0f, 1.0f));
+            treeModelMatrix = glm::scale(treeModelMatrix, glm::vec3(t.scale, t.scale, t.scale));
 
-        glm::mat4 treeMvp = viewProjectionMatrix * treeModelMatrix;
-        tree.render(treeModelMatrix, viewProjectionMatrix, lightPosition, lightIntensity, ambientLight, viewPosition);
+            glm::mat4 treeMvp = viewProjectionMatrix * treeModelMatrix;
+            tree.render(treeModelMatrix, viewProjectionMatrix, lightPosition, lightIntensity, ambientLight, viewPosition);
+        }
     }
 }

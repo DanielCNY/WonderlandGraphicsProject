@@ -539,16 +539,16 @@ table.memberdecls {
 
 /* @end */
 
-/* @group Directory (tree) */
+/* @group Directory (fir_tree) */
 
-/* for the tree view */
+/* for the fir_tree view */
 
 .ftvtree {
 	/*font-family: Lucida Grande, Calibri, Verdana;*/
 	margin: 0px;
 }
 
-/* these are for tree view when used as main index */
+/* these are for fir_tree view when used as main index */
 
 .directory {
 	font-weight: bold;
@@ -596,7 +596,7 @@ proper pixel height of your image.
 	vertical-align: -30%;
 }
 
-/* these are for tree view when not used as main index */
+/* these are for fir_tree view when not used as main index */
 
 .directory-alt {
 	font-size: 100%;
