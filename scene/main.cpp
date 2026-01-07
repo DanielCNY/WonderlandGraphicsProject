@@ -259,12 +259,13 @@ struct Skybox {
 
 class SimpleSnowSystem {
 private:
-    struct SimpleParticle {
-        glm::vec3 position;
+    struct Particle {
+        glm::vec3 offset;
         float size;
     };
 
-    std::vector<SimpleParticle> particles;
+    std::vector<Particle> particles;
+    std::vector<glm::vec3> worldPositions;
     GLuint vertexArrayID;
     GLuint vertexBufferID;
     GLuint programID;
@@ -273,20 +274,21 @@ private:
     std::mt19937 rng;
 
 public:
-    SimpleSnowSystem() : vertexArrayID(0), vertexBufferID(0), programID(0) {
+    SimpleSnowSystem() : vertexArrayID(0), vertexBufferID(0), programID(0), mvpMatrixID(0) {
         rng.seed(std::random_device{}());
     }
 
     void initialize(int count = 1500) {
         particles.resize(count);
+        worldPositions.resize(count);
 
-        std::uniform_real_distribution<float> distX(-5000.0f, 5000.0f);
-        std::uniform_real_distribution<float> distY(0.0f, 3000.0f);
-        std::uniform_real_distribution<float> distZ(-5000.0f, 5000.0f);
-        std::uniform_real_distribution<float> distSize(1.0f, 3.0f);
+        std::uniform_real_distribution<float> distX(-150.0f, 150.0f);
+        std::uniform_real_distribution<float> distY(0.0f, 300.0f);
+        std::uniform_real_distribution<float> distZ(-150.0f, 150.0f);
+        std::uniform_real_distribution<float> distSize(0.3f, 1.0f);
 
         for (auto& p : particles) {
-            p.position = glm::vec3(distX(rng), distY(rng), distZ(rng));
+            p.offset = glm::vec3(distX(rng), distY(rng), distZ(rng));
             p.size = distSize(rng);
         }
 
@@ -296,76 +298,63 @@ public:
     		std::cerr << "Failed to load shaders." << std::endl;
     	}
 
-    	mvpMatrixID = glGetUniformLocation(programID, "MVP");
+        mvpMatrixID = glGetUniformLocation(programID, "MVP");
 
         glGenVertexArrays(1, &vertexArrayID);
         glBindVertexArray(vertexArrayID);
 
         glGenBuffers(1, &vertexBufferID);
         glBindBuffer(GL_ARRAY_BUFFER, vertexBufferID);
-        glBufferData(GL_ARRAY_BUFFER, particles.size() * sizeof(SimpleParticle),
-                     particles.data(), GL_DYNAMIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, worldPositions.size() * sizeof(glm::vec3),
+                     nullptr, GL_DYNAMIC_DRAW);
 
         glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(SimpleParticle), (void*)0);
-
-        glEnableVertexAttribArray(1);
-        glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, sizeof(SimpleParticle),
-                             (void*)offsetof(SimpleParticle, size));
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
 
         glBindVertexArray(0);
     }
 
-    void update(float deltaTime) {
-        std::uniform_real_distribution<float> distVelY(-30.0f, -10.0f);
-        std::uniform_real_distribution<float> distVelXZ(-1.0f, 1.0f);
+    void update(float deltaTime, const glm::vec3& cameraPos) {
+        std::uniform_real_distribution<float> resetDistX(-150.0f, 150.0f);
+        std::uniform_real_distribution<float> resetDistY(200.0f, 300.0f);
+        std::uniform_real_distribution<float> resetDistZ(-150.0f, 150.0f);
+        std::uniform_real_distribution<float> driftDist(-0.2f, 0.2f);
 
-        for (auto& p : particles) {
-            p.position.y += distVelY(rng) * deltaTime;
-            p.position.x += distVelXZ(rng) * deltaTime * 10.0f;
-            p.position.z += distVelXZ(rng) * deltaTime * 10.0f;
+        for (size_t i = 0; i < particles.size(); ++i) {
+            auto& p = particles[i];
 
-            if (p.position.y < -100.0f) {
-                std::uniform_real_distribution<float> distX(-5000.0f, 5000.0f);
-                std::uniform_real_distribution<float> distY(2000.0f, 3000.0f);
-                std::uniform_real_distribution<float> distZ(-5000.0f, 5000.0f);
-                p.position = glm::vec3(distX(rng), distY(rng), distZ(rng));
+            p.offset.y -= 20.0f * deltaTime;
+
+            p.offset.x += driftDist(rng) * deltaTime * 5.0f;
+            p.offset.z += driftDist(rng) * deltaTime * 5.0f;
+
+            worldPositions[i] = cameraPos + p.offset;
+
+            if (p.offset.y < -50.0f) {
+                p.offset = glm::vec3(resetDistX(rng), resetDistY(rng), resetDistZ(rng));
+                worldPositions[i] = cameraPos + p.offset;
             }
         }
 
         glBindBuffer(GL_ARRAY_BUFFER, vertexBufferID);
-        glBufferSubData(GL_ARRAY_BUFFER, 0, particles.size() * sizeof(SimpleParticle),
-                       particles.data());
+        glBufferSubData(GL_ARRAY_BUFFER, 0,
+                       worldPositions.size() * sizeof(glm::vec3),
+                       worldPositions.data());
     }
-	void render(const glm::mat4& vp) {
-    	if (programID == 0) {
-    		return;
-    	}
 
-    	glEnable(GL_BLEND);
-    	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    	glEnable(GL_PROGRAM_POINT_SIZE);
-    	glDepthMask(GL_FALSE);
+    void render(const glm::mat4& vp) {
+        glUseProgram(programID);
+        glBindVertexArray(vertexArrayID);
 
-    	glUseProgram(programID);
-    	glBindVertexArray(vertexArrayID);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    	glUniformMatrix4fv(mvpMatrixID, 1, GL_FALSE, &vp[0][0]);
+        glUniformMatrix4fv(mvpMatrixID, 1, GL_FALSE, &vp[0][0]);
 
-    	GLuint pointSizeID = glGetUniformLocation(programID, "pointSize");
-    	if (pointSizeID != -1) {
-    		float baseSize = 2.0f;
-    		float scaledSize = baseSize * (static_cast<float>(windowHeight) / 1080.0f);
-    		glUniform1f(pointSizeID, scaledSize);
-    	}
+        glDrawArrays(GL_POINTS, 0, particles.size());
 
-    	glDrawArrays(GL_POINTS, 0, particles.size());
-
-    	glBindVertexArray(0);
-
-    	glDepthMask(GL_TRUE);
-    	glDisable(GL_BLEND);
-    	glDisable(GL_PROGRAM_POINT_SIZE);
+        glDisable(GL_BLEND);
+        glBindVertexArray(0);
     }
 
     void cleanup() {
@@ -459,7 +448,7 @@ int main(void)
     		lastTime = currentTime;
     	}
 
-    	snowSystem.update(deltaTime);
+    	snowSystem.update(deltaTime, eye_center);
 
     	glm::mat4 skyboxView = glm::mat4(glm::mat3(viewMatrix));
     	skybox.render(projectionMatrix * skyboxView);
@@ -467,7 +456,8 @@ int main(void)
     	worldManager.update(eye_center, deltaTime, currentTime);
     	worldManager.render(vp, lightPosition, lightIntensity, eye_center);
 
-    	// TEST -- Currently Breaks Skybox
+    	// SNOWSYSTEM TEST -- Currently Breaks Skybox
+    	// UNCOMMENT THIS LINE
     	// snowSystem.render(vp);
 
         // Swap buffers
