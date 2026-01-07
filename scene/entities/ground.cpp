@@ -94,7 +94,7 @@ void GroundPlane::initialize() {
                  normal_buffer_data, GL_STATIC_DRAW);
 
     TextureManager& tm = TextureManager::getInstance();
-    textureID = tm.getTexture("../scene/textures/snowy_ground01.jpg");
+    textureID = tm.getTexture("../scene/textures/snowy_ground02.jpg");
 
     glBindVertexArray(0);
     restoreState(prevProgram, prevVAO, prevArrayBuffer, prevElementBuffer, attribEnabled);
