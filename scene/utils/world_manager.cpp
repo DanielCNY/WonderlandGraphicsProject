@@ -19,12 +19,12 @@ int WorldManager::getChunkCoord(float worldCoord) {
     return static_cast<int>(std::round(worldCoord / Chunk::SIZE));
 }
 
-void WorldManager::update(const glm::vec3& cameraPos, const float& deltaTime) {
+void WorldManager::update(const glm::vec3& cameraPos, const float& deltaTime, float globalTime) {
     int newCenterChunkX = getChunkCoord(cameraPos.x);
     int newCenterChunkZ = getChunkCoord(cameraPos.z);
 
     for (auto& pair : chunkMap) {
-        pair.second->update(deltaTime);
+        pair.second->update(deltaTime, globalTime);
     }
 
     if (!initialized || newCenterChunkX != centerChunkX || newCenterChunkZ != centerChunkZ) {
@@ -55,12 +55,9 @@ void WorldManager::update(const glm::vec3& cameraPos, const float& deltaTime) {
     }
 }
 
-void WorldManager::render(const glm::mat4& viewProjectionMatrix,
-                         const glm::vec3& lightPosition,
-                         const glm::vec3& lightIntensity,
-                         const glm::vec3& ambientLight,
-                         const glm::vec3& viewPosition) {
+void WorldManager::render(const glm::mat4& viewProjectionMatrix, const glm::vec3& lightPosition,
+                                const glm::vec3& lightIntensity, const glm::vec3& viewPosition) {
     for (auto& pair : chunkMap) {
-        pair.second->render(viewProjectionMatrix, lightPosition, lightIntensity, ambientLight, viewPosition);
+        pair.second->render(viewProjectionMatrix, lightPosition, lightIntensity, viewPosition);
     }
 }

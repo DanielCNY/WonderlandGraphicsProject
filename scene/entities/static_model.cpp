@@ -146,8 +146,8 @@ std::shared_ptr<StaticModel::ModelCache> StaticModel::loadModelToCache(const cha
         return nullptr;
     }
 
-    cache->programID = LoadShadersFromFile("../scene/shaders/simple.vert",
-                                          "../scene/shaders/simple.frag");
+    cache->programID = LoadShadersFromFile("../scene/shaders/static.vert",
+                                          "../scene/shaders/static.frag");
     if (cache->programID == 0) {
         std::cerr << "Failed to load static model shaders" << std::endl;
         restoreOpenGLState(prevProgram, prevVAO, prevArrayBuffer, prevElementBuffer,
@@ -160,7 +160,6 @@ std::shared_ptr<StaticModel::ModelCache> StaticModel::loadModelToCache(const cha
     cache->mvpMatrixID = glGetUniformLocation(cache->programID, "MVP");
     cache->lightPositionID = glGetUniformLocation(cache->programID, "lightPosition");
     cache->lightIntensityID = glGetUniformLocation(cache->programID, "lightIntensity");
-    cache->ambientLightID = glGetUniformLocation(cache->programID, "ambientLight");
     cache->viewPositionID = glGetUniformLocation(cache->programID, "viewPosition");
     cache->textureSamplerID = glGetUniformLocation(cache->programID, "textureSampler");
 
@@ -346,7 +345,7 @@ void StaticModel::restoreOpenGLState(GLint program, GLint vao, GLint arrayBuffer
 }
 
 void StaticModel::render(const glm::mat4& modelMatrix, const glm::mat4& viewProjectionMatrix, const glm::vec3& lightPosition,
-                        const glm::vec3& lightIntensity, const glm::vec3& ambientLight, const glm::vec3& viewPosition) {
+                        const glm::vec3& lightIntensity, const glm::vec3& viewPosition) {
     if (!cachedModel || cachedModel->programID == 0 || cachedModel->primitiveObjects.empty()) {
         return;
     }
@@ -364,7 +363,6 @@ void StaticModel::render(const glm::mat4& modelMatrix, const glm::mat4& viewProj
     glUniformMatrix4fv(cachedModel->modelMatrixID, 1, GL_FALSE, &modelMatrix[0][0]);
     glUniform3fv(cachedModel->lightPositionID, 1, &lightPosition[0]);
     glUniform3fv(cachedModel->lightIntensityID, 1, &lightIntensity[0]);
-    glUniform3fv(cachedModel->ambientLightID, 1, &ambientLight[0]);
     glUniform3fv(cachedModel->viewPositionID, 1, &viewPosition[0]);
 
     glActiveTexture(GL_TEXTURE0);

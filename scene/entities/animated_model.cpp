@@ -249,10 +249,14 @@ void AnimatedModel::updateNodeTransforms() {
     }
 }
 
-void AnimatedModel::update(float time) {
+void AnimatedModel::update(float deltaTime, float globalTime) {
     if (!isPlaying || !cachedModel || cachedModel->animationClips.empty()) return;
 
-    currentTime += time;
+    if (globalTime >= 0.0f) {
+        currentTime = globalTime;
+    } else {
+        currentTime += deltaTime * playbackSpeed;
+    }
 
     const auto& clip = cachedModel->animationClips[0];
 
@@ -307,7 +311,7 @@ std::shared_ptr<AnimatedModel::ModelCache> AnimatedModel::loadModelToCache(const
 
     cache->model = model;
 
-    cache->programID = LoadShadersFromFile("../scene/shaders/bot.vert", "../scene/shaders/bot.frag");
+    cache->programID = LoadShadersFromFile("../scene/shaders/animated.vert", "../scene/shaders/animated.frag");
     if (cache->programID == 0) {
         std::cerr << "Failed to load animated model shaders" << std::endl;
         restoreOpenGLState(prevProgram, prevVAO, prevArrayBuffer, prevElementBuffer,
@@ -319,7 +323,6 @@ std::shared_ptr<AnimatedModel::ModelCache> AnimatedModel::loadModelToCache(const
     cache->jointMatricesID = glGetUniformLocation(cache->programID, "jointMatrices");
     cache->lightPositionID = glGetUniformLocation(cache->programID, "lightPosition");
     cache->lightIntensityID = glGetUniformLocation(cache->programID, "lightIntensity");
-    cache->ambientLightID = glGetUniformLocation(cache->programID, "ambientLight");
     cache->viewPositionID = glGetUniformLocation(cache->programID, "viewPosition");
     cache->modelMatrixID = glGetUniformLocation(cache->programID, "modelMatrix");
     cache->textureSamplerID = glGetUniformLocation(cache->programID, "textureSampler");
@@ -559,9 +562,8 @@ bool AnimatedModel::loadModel(const char* filename) {
     return true;
 }
 
-void AnimatedModel::render(const glm::mat4& modelMatrix, const glm::mat4& viewProjectionMatrix,
-                          const glm::vec3& lightPosition, const glm::vec3& lightIntensity,
-                          const glm::vec3& ambientLight, const glm::vec3& viewPosition) {
+void AnimatedModel::render(const glm::mat4& modelMatrix, const glm::mat4& viewProjectionMatrix, const glm::vec3& lightPosition,
+                                    const glm::vec3& lightIntensity, const glm::vec3& viewPosition) {
     if (!cachedModel || cachedModel->programID == 0 || cachedModel->primitiveObjects.empty()) {
         return;
     }
@@ -586,7 +588,6 @@ void AnimatedModel::render(const glm::mat4& modelMatrix, const glm::mat4& viewPr
 
     glUniform3fv(cachedModel->lightPositionID, 1, &lightPosition[0]);
     glUniform3fv(cachedModel->lightIntensityID, 1, &lightIntensity[0]);
-    glUniform3fv(cachedModel->ambientLightID, 1, &ambientLight[0]);
     glUniform3fv(cachedModel->viewPositionID, 1, &viewPosition[0]);
 
     glActiveTexture(GL_TEXTURE0);

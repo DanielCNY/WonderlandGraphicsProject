@@ -13,8 +13,8 @@ GroundPlane::~GroundPlane() {
 }
 
 GLuint GroundPlane::loadGroundShaders() {
-    return LoadShadersFromFile("../scene/shaders/simple.vert",
-                              "../scene/shaders/simple.frag");
+    return LoadShadersFromFile("../scene/shaders/ground.vert",
+                              "../scene/shaders/ground.frag");
 }
 
 void GroundPlane::initialize() {
@@ -42,7 +42,6 @@ void GroundPlane::initialize() {
     mvpMatrixID = glGetUniformLocation(programID, "MVP");
     lightPositionID = glGetUniformLocation(programID, "lightPosition");
     lightIntensityID = glGetUniformLocation(programID, "lightIntensity");
-    ambientLightID = glGetUniformLocation(programID, "ambientLight");
     viewPositionID = glGetUniformLocation(programID, "viewPosition");
 
     GLfloat vertex_buffer_data[12] = {
@@ -119,7 +118,7 @@ void GroundPlane::restoreState(GLint program, GLint vao, GLint arrayBuffer,
 }
 
 void GroundPlane::render(const glm::mat4& modelMatrix, const glm::mat4& viewProjectionMatrix, const glm::vec3& lightPosition,
-                                const glm::vec3& lightIntensity, const glm::vec3& ambientLight, const glm::vec3& viewPosition) {
+                                const glm::vec3& lightIntensity, const glm::vec3& viewPosition) {
     GLint prevProgram, prevVAO, prevArrayBuffer, prevElementBuffer;
     glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
     glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &prevVAO);
@@ -139,7 +138,6 @@ void GroundPlane::render(const glm::mat4& modelMatrix, const glm::mat4& viewProj
     glUniformMatrix4fv(viewProjectionMatrixID, 1, GL_FALSE, &viewProjectionMatrix[0][0]);
     glUniform3fv(lightPositionID, 1, &lightPosition[0]);
     glUniform3fv(lightIntensityID, 1, &lightIntensity[0]);
-    glUniform3fv(ambientLightID, 1, &ambientLight[0]);
     glUniform3fv(viewPositionID, 1, &viewPosition[0]);
 
     glBindVertexArray(vertexArrayID);

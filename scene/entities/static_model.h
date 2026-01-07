@@ -62,7 +62,7 @@ public:
 
     bool loadModel(const char* filename);
     void render(const glm::mat4& modelMatrix, const glm::mat4& viewProjectionMatrix, const glm::vec3& lightPosition,
-                        const glm::vec3& lightIntensity, const glm::vec3& ambientLight, const glm::vec3& viewPosition);
+                        const glm::vec3& lightIntensity, const glm::vec3& viewPosition);
     void cleanup();
 
     static void cleanupAll();

@@ -25,8 +25,7 @@ static float zNear = 1.0f;
 static float zFar = 20000.0f;
 
 static glm::vec3 lightPosition(0.0f, 1000.0f, 0.0f);
-static glm::vec3 lightIntensity(1.0f, 1.0f, 1.0f);
-static glm::vec3 ambientLight(0.2f, 0.2f, 0.25f);
+static glm::vec3 lightIntensity(5e6f, 5e6f, 5e6f);
 
 // Mouse movement
 static float yaw = -90.0f;
@@ -191,7 +190,7 @@ struct Skybox {
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBufferID);
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(index_buffer_data), index_buffer_data, GL_STATIC_DRAW);
 
-		programID = LoadShadersFromFile("../scene/shaders/box.vert", "../scene/shaders/box.frag");
+		programID = LoadShadersFromFile("../scene/shaders/skybox.vert", "../scene/shaders/skybox.frag");
 		if (programID == 0)
 		{
 			std::cerr << "Failed to load shaders." << std::endl;
@@ -315,7 +314,7 @@ int main(void)
         glm::mat4 viewMatrix = glm::lookAt(eye_center, lookat, up);
         glm::mat4 vp = projectionMatrix * viewMatrix;
 
-    	double currentTime = glfwGetTime();
+    	float currentTime = static_cast<float>(glfwGetTime());
     	float deltaTime = static_cast<float>(currentTime - lastFrameTime);
     	lastFrameTime = currentTime;
     	frameCount++;
@@ -338,8 +337,8 @@ int main(void)
     	glm::mat4 skyboxView = glm::mat4(glm::mat3(viewMatrix));
     	skybox.render(projectionMatrix * skyboxView);
 
-    	worldManager.update(eye_center, deltaTime);
-    	worldManager.render(vp, lightPosition, lightIntensity, ambientLight, eye_center);
+    	worldManager.render(vp, lightPosition, lightIntensity, eye_center);
+    	worldManager.update(eye_center, deltaTime, currentTime);
 
         // Swap buffers
         glfwSwapBuffers(window);

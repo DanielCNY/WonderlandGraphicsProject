@@ -21,9 +21,9 @@ public:
     AnimatedModel& operator=(AnimatedModel&& other) noexcept;
 
     bool loadModel(const char* filename);
-    void update(float deltaTime);
+    void update(float deltaTime, float globalTime = -1.0f);
     void render(const glm::mat4& modelMatrix, const glm::mat4& viewProjectionMatrix, const glm::vec3& lightPosition,
-                        const glm::vec3& lightIntensity, const glm::vec3& ambientLight, const glm::vec3& viewPosition);
+                        const glm::vec3& lightIntensity, const glm::vec3& viewPosition);
     void cleanup();
     void play() { isPlaying = true; }
     void pause() { isPlaying = false; }
@@ -79,7 +79,6 @@ private:
         GLuint jointMatricesID = 0;
         GLuint lightPositionID = 0;
         GLuint lightIntensityID = 0;
-        GLuint ambientLightID = 0;
         GLuint viewPositionID = 0;
         GLuint modelMatrixID = 0;
         GLuint textureSamplerID = 0;

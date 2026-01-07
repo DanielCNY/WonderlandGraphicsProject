@@ -18,9 +18,9 @@ public:
 
     Chunk(int x, int z);
     void initialize();
-    void update(float deltaTime);
-    void render(const glm::mat4& viewProjectionMatrix, const glm::vec3& lightPosition, const glm::vec3& lightIntensity,
-                        const glm::vec3& ambientLight, const glm::vec3& viewPosition);
+    void update(float deltaTime, float globalTime);
+    void render(const glm::mat4& viewProjectionMatrix, const glm::vec3& lightPosition,
+                        const glm::vec3& lightIntensity, const glm::vec3& viewPosition);
 
     int getX() const { return chunkX; }
     int getZ() const { return chunkZ; }

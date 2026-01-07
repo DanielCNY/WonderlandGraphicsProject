@@ -22,9 +22,9 @@ public:
     WorldManager();
     ~WorldManager();
 
-    void update(const glm::vec3& cameraPos, const float& deltaTime);
-    void render(const glm::mat4& viewProjectionMatrix, const glm::vec3& lightPosition, const glm::vec3& lightIntensity,
-                        const glm::vec3& ambientLight, const glm::vec3& viewPosition);
+    void update(const glm::vec3& cameraPos, const float& deltaTime, float globalTime);
+    void render(const glm::mat4& viewProjectionMatrix, const glm::vec3& lightPosition,
+                        const glm::vec3& lightIntensity, const glm::vec3& viewPosition);
     void setMarkedForRemoval(bool marked) { markedForRemoval = marked; }
     bool isMarkedForRemoval() const { return markedForRemoval; }
 
