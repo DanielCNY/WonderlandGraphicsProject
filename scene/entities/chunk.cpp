@@ -14,9 +14,10 @@ void Chunk::initialize() {
     std::mt19937 rng(seed);
     std::uniform_int_distribution<int> countDist(0, 9);
     numTrees = countDist(rng);
-    std::uniform_int_distribution<int> spawnDist(0, 5);
+    std::uniform_int_distribution<int> spawnDist(0, 8);
     giantAppear = (spawnDist(rng) == 3);
     caneAppear = (spawnDist(rng) < 3);
+    snowmanAppear = (spawnDist(rng) == 7);
 
     if (numTrees == 0 && giantAppear) {
         if (!bot.loadModel("../scene/entities/models/bot/bot.gltf")) {
@@ -26,6 +27,11 @@ void Chunk::initialize() {
     else if (numTrees == 0 && caneAppear) {
         if (!cane.loadModel("../scene/entities/models/candy_cane/cane.gltf")) {
             std::cerr << "Failed to load candy_cane model" << std::endl;
+        }
+    }
+    else if (numTrees == 0 && snowmanAppear) {
+        if (!snowman.loadModel("../scene/entities/models/snowman/snowman.gltf")) {
+            std::cerr << "Failed to load snowman model" << std::endl;
         }
     }
     else {
@@ -60,7 +66,6 @@ void Chunk::generateTrees()
     std::shuffle(corners.begin(), corners.end(), rng);
 
     std::uniform_real_distribution<float> scaleDist(0.7f, 1.3f);
-
     std::uniform_real_distribution<float> rotationDist(0.0f, 360.0f);
 
     for (int i = 0; i < numTrees; i++) {
@@ -80,6 +85,8 @@ void Chunk::render(const glm::mat4& viewProjectionMatrix, const glm::vec3& light
     float centerX = chunkX * SIZE - (SIZE / 2.0f) + 300.0f;
     float centerZ = chunkZ * SIZE + (SIZE / 2.0f) - 300.0f;
 
+    std::mt19937 rng(seed);
+
     if (numTrees == 0 && giantAppear) {
         glm::mat4 botModelMatrix = glm::mat4(1.0f);
         botModelMatrix = glm::translate(botModelMatrix, glm::vec3(centerX, -135.0f, centerZ));
@@ -87,7 +94,6 @@ void Chunk::render(const glm::mat4& viewProjectionMatrix, const glm::vec3& light
         bot.render(botModelMatrix, viewProjectionMatrix, lightPosition, lightIntensity, viewPosition);
     }
     else if (numTrees == 0 && caneAppear) {
-        std::mt19937 rng(seed);
         std::uniform_real_distribution<float> scaleDist(50.0f, 150.0f);
         std::uniform_real_distribution<float> rotationDist(0.0f, 360.0f);
         float newScale = scaleDist(rng);
@@ -99,6 +105,12 @@ void Chunk::render(const glm::mat4& viewProjectionMatrix, const glm::vec3& light
                                     glm::vec3(0.0f, 0.0f, 1.0f));
         caneModelMatrix = glm::scale(caneModelMatrix, glm::vec3(newScale, newScale, newScale));
         cane.render(caneModelMatrix, viewProjectionMatrix, lightPosition, lightIntensity, viewPosition);
+    }
+    else if (numTrees == 0 && snowmanAppear) {
+        glm::mat4 snowmanModelMatrix = glm::mat4(1.0f);
+        snowmanModelMatrix = glm::translate(snowmanModelMatrix, glm::vec3(centerX, 0.0f, centerZ));
+        snowmanModelMatrix = glm::scale(snowmanModelMatrix, glm::vec3(10.0f, 10.0f, 10.0f));
+        snowman.render(snowmanModelMatrix, viewProjectionMatrix, lightPosition, lightIntensity, viewPosition);
     }
     else if (numTrees > 0)
     {

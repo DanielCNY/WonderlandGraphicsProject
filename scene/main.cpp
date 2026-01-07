@@ -7,6 +7,10 @@
 #include "utils/texture_manager.h"
 #include <iostream>
 #include <iomanip>
+#include <vector>
+#include <random>
+#include <glfw-3.1.2/deps/GL/glext.h>
+#include <algorithm>
 
 static GLFWwindow *window;
 static int windowWidth = 1920;
@@ -34,6 +38,178 @@ static bool firstMouse = true;
 static float lastX = 512.0f;
 static float lastY = 384.0f;
 static float sensitivity = 0.1f;
+
+struct SnowParticle {
+    glm::vec3 position;
+    glm::vec3 velocity;
+    float size;
+    float rotation;
+    float rotationSpeed;
+    float life; // For fade in/out if we want
+};
+
+class SimpleSnowSystem {
+private:
+    struct SimpleParticle {
+        glm::vec3 position;
+        float size;
+    };
+
+    std::vector<SimpleParticle> particles;
+    GLuint vertexArrayID;
+    GLuint vertexBufferID;
+    GLuint programID;
+    GLuint mvpMatrixID;
+
+    std::mt19937 rng;
+
+public:
+    SimpleSnowSystem() : vertexArrayID(0), vertexBufferID(0), programID(0) {
+        rng.seed(std::random_device{}());
+    }
+
+    void initialize(int count = 1000) {
+        particles.resize(count);
+
+        // Initialize with random positions
+        std::uniform_real_distribution<float> distX(-5000.0f, 5000.0f);
+        std::uniform_real_distribution<float> distY(0.0f, 3000.0f);
+        std::uniform_real_distribution<float> distZ(-5000.0f, 5000.0f);
+        std::uniform_real_distribution<float> distSize(1.0f, 3.0f);
+
+        for (auto& p : particles) {
+            p.position = glm::vec3(distX(rng), distY(rng), distZ(rng));
+            p.size = distSize(rng);
+        }
+
+        // Simple shader - we'll use the same as skybox for now
+        programID = LoadShadersFromFile("../scene/shaders/skybox.vert", "../scene/shaders/skybox.frag");
+        if (programID == 0) {
+            // Create a super simple shader inline
+            const char* vertexShaderSource = R"(
+                #version 330 core
+                layout(location = 0) in vec3 position;
+                layout(location = 1) in float size;
+                uniform mat4 MVP;
+                uniform float pointSize;
+                void main() {
+                    gl_Position = MVP * vec4(position, 1.0);
+                    gl_PointSize = size * pointSize;
+                }
+            )";
+
+            const char* fragmentShaderSource = R"(
+                #version 330 core
+                out vec4 FragColor;
+                void main() {
+                    // Make circular points
+                    vec2 coord = gl_PointCoord - vec2(0.5);
+                    if(length(coord) > 0.5) discard;
+                    FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+                }
+            )";
+
+            // Compile shaders
+            GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
+            glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
+            glCompileShader(vertexShader);
+
+            GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+            glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
+            glCompileShader(fragmentShader);
+
+            programID = glCreateProgram();
+            glAttachShader(programID, vertexShader);
+            glAttachShader(programID, fragmentShader);
+            glLinkProgram(programID);
+
+            glDeleteShader(vertexShader);
+            glDeleteShader(fragmentShader);
+        }
+
+        mvpMatrixID = glGetUniformLocation(programID, "MVP");
+        GLuint pointSizeID = glGetUniformLocation(programID, "pointSize");
+
+        // Create buffers
+        glGenVertexArrays(1, &vertexArrayID);
+        glBindVertexArray(vertexArrayID);
+
+        glGenBuffers(1, &vertexBufferID);
+        glBindBuffer(GL_ARRAY_BUFFER, vertexBufferID);
+        glBufferData(GL_ARRAY_BUFFER, particles.size() * sizeof(SimpleParticle),
+                     particles.data(), GL_DYNAMIC_DRAW);
+
+        // Position attribute
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(SimpleParticle), (void*)0);
+
+        // Size attribute
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, sizeof(SimpleParticle),
+                             (void*)offsetof(SimpleParticle, size));
+
+        glBindVertexArray(0);
+    }
+
+    void update(float deltaTime) {
+        std::uniform_real_distribution<float> distVelY(-30.0f, -10.0f);
+        std::uniform_real_distribution<float> distVelXZ(-1.0f, 1.0f);
+
+        for (auto& p : particles) {
+            // Simple downward movement with slight drift
+            p.position.y += distVelY(rng) * deltaTime;
+            p.position.x += distVelXZ(rng) * deltaTime * 10.0f;
+            p.position.z += distVelXZ(rng) * deltaTime * 10.0f;
+
+            // Reset if below ground
+            if (p.position.y < -100.0f) {
+                std::uniform_real_distribution<float> distX(-5000.0f, 5000.0f);
+                std::uniform_real_distribution<float> distY(2000.0f, 3000.0f);
+                std::uniform_real_distribution<float> distZ(-5000.0f, 5000.0f);
+                p.position = glm::vec3(distX(rng), distY(rng), distZ(rng));
+            }
+        }
+
+        // Update buffer
+        glBindBuffer(GL_ARRAY_BUFFER, vertexBufferID);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, particles.size() * sizeof(SimpleParticle),
+                       particles.data());
+    }
+
+    void render(const glm::mat4& vp) {
+        glUseProgram(programID);
+        glBindVertexArray(vertexArrayID);
+
+        // Enable blending
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+        // Enable point sprites and set size
+        glEnable(GL_PROGRAM_POINT_SIZE);
+        glEnable(GL_POINT_SPRITE);
+
+        // Set uniforms
+        glUniformMatrix4fv(mvpMatrixID, 1, GL_FALSE, &vp[0][0]);
+        glUniform1f(glGetUniformLocation(programID, "pointSize"),
+                    5.0f * (windowHeight / 1080.0f)); // Scale with window size
+
+        // Draw
+        glDrawArrays(GL_POINTS, 0, particles.size());
+
+        // Clean up
+        glDisable(GL_POINT_SPRITE);
+        glDisable(GL_PROGRAM_POINT_SIZE);
+        glDisable(GL_BLEND);
+
+        glBindVertexArray(0);
+    }
+
+    void cleanup() {
+        if (vertexBufferID) glDeleteBuffers(1, &vertexBufferID);
+        if (vertexArrayID) glDeleteVertexArrays(1, &vertexArrayID);
+        if (programID) glDeleteProgram(programID);
+    }
+};
 
 struct Skybox {
 	glm::vec3 position;
@@ -302,6 +478,9 @@ int main(void)
 
 	WorldManager worldManager;
 
+	SimpleSnowSystem snowSystem;
+	snowSystem.initialize(1500);
+
 	Skybox skybox;
 	skybox.initialize(glm::vec3(0, 2000, 0), glm::vec3(7500, 7500, 7500));
 
@@ -339,6 +518,14 @@ int main(void)
 
     	worldManager.render(vp, lightPosition, lightIntensity, eye_center);
     	worldManager.update(eye_center, deltaTime, currentTime);
+
+    	snowSystem.update(deltaTime);
+
+    	glm::vec3 lookDirection = glm::normalize(lookat - eye_center);
+    	glm::vec3 cameraRight = glm::normalize(glm::cross(lookDirection, up));
+    	glm::vec3 cameraUp = glm::normalize(glm::cross(cameraRight, lookDirection));
+
+    	snowSystem.render(vp);
 
         // Swap buffers
         glfwSwapBuffers(window);

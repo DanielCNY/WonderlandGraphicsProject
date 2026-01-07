@@ -31,6 +31,7 @@ private:
     int numTrees;
     bool giantAppear;
     bool caneAppear;
+    bool snowmanAppear;
 
     GroundPlane ground;
 
@@ -38,6 +39,7 @@ private:
     std::vector<Transformation> treeTransforms;
 
     StaticModel cane;
+    StaticModel snowman;
 
     AnimatedModel bot;
 

@@ -94,8 +94,7 @@ void GroundPlane::initialize() {
                  normal_buffer_data, GL_STATIC_DRAW);
 
     TextureManager& tm = TextureManager::getInstance();
-    int facade = 1 + std::rand() % 2;
-    textureID = tm.getTexture("../scene/textures/snowy_ground0" + std::to_string(facade) + ".jpg");
+    textureID = tm.getTexture("../scene/textures/snowy_ground01.jpg");
 
     glBindVertexArray(0);
     restoreState(prevProgram, prevVAO, prevArrayBuffer, prevElementBuffer, attribEnabled);
