@@ -17,13 +17,16 @@ void Chunk::initialize() {
     std::uniform_int_distribution<int> spawnDist(0, 5);
     willAppear = (spawnDist(rng) == 1);
 
-    if (!bot.loadModel("../scene/entities/models/bot/bot.gltf")) {
-        std::cerr << "Failed to load bot model" << std::endl;
+    if (numTrees == 0) {
+        if (!bot.loadModel("../scene/entities/models/bot/bot.gltf")) {
+            std::cerr << "Failed to load bot model" << std::endl;
+        }
+    } else {
+        if (!tree.loadModel("../scene/entities/models/fir_tree/winter_fir.gltf")) {
+            std::cerr << "Failed to load fir_tree model" << std::endl;
+        }
+        generateTrees();
     }
-    if (!tree.loadModel("../scene/entities/models/fir_tree/winter_fir.gltf")) {
-        std::cerr << "Failed to load fir_tree model" << std::endl;
-    }
-    else generateTrees();
 
 }
 
@@ -59,11 +62,8 @@ void Chunk::generateTrees()
     }
 }
 
-void Chunk::render(const glm::mat4& viewProjectionMatrix,
-                const glm::vec3& lightPosition,
-                const glm::vec3& lightIntensity,
-                const glm::vec3& ambientLight,
-                const glm::vec3& viewPosition) {
+void Chunk::render(const glm::mat4& viewProjectionMatrix, const glm::vec3& lightPosition, const glm::vec3& lightIntensity,
+                            const glm::vec3& ambientLight, const glm::vec3& viewPosition) {
     glm::mat4 groundModelMatrix = glm::mat4(1.0f);
     groundModelMatrix = glm::translate(groundModelMatrix,
                                       glm::vec3(chunkX * SIZE, 0.0f, chunkZ * SIZE));
@@ -74,14 +74,13 @@ void Chunk::render(const glm::mat4& viewProjectionMatrix,
     float centerZ = chunkZ * SIZE + (SIZE / 2.0f) - 300.0f;
 
     if (numTrees == 0 && willAppear) {
+
         glm::mat4 botModelMatrix = glm::mat4(1.0f);
-        botModelMatrix = glm::translate(botModelMatrix, glm::vec3(centerX, 10.0f, centerZ));
-        botModelMatrix = glm::rotate(botModelMatrix, glm::radians(90.0f),
-                                glm::vec3(1.0f, 0.0f, 0.0f));
-        botModelMatrix = glm::scale(botModelMatrix, glm::vec3(5.0f, 5.0f, 5.0f));
+        botModelMatrix = glm::translate(botModelMatrix, glm::vec3(centerX, -210.0f, centerZ));
+        botModelMatrix = glm::scale(botModelMatrix, glm::vec3(6.0f, 6.0f, 6.0f));
         bot.render(botModelMatrix, viewProjectionMatrix, lightPosition, lightIntensity, ambientLight, viewPosition);
     }
-    else
+    else if (numTrees > 0)
     {
         for (auto& t : treeTransforms)
         {

@@ -49,6 +49,7 @@ private:
         std::vector<glm::mat4> inverseBindMatrices;
         std::vector<int> jointIndices;
         std::vector<glm::mat4> jointMatrices;
+        std::vector<glm::mat4> globalJointTransforms;
     };
 
     struct AnimationSampler {
@@ -106,8 +107,11 @@ private:
 
     std::shared_ptr<ModelCache> loadModelToCache(const char* filename);
     void updateNodeTransforms();
-    void updateAnimation(float time);
-    void updateSkinning();
+
+    void updateAnimation(std::vector<glm::mat4>& localTransforms, float time);
+    static void computeGlobalNodeTransform(const tinygltf::Model& model, const std::vector<glm::mat4>& localTransforms,
+        int nodeIndex, const glm::mat4& parentTransform, std::vector<glm::mat4>& globalTransforms);
+    void updateSkinning(const std::vector<glm::mat4>& globalTransforms);
 
     glm::mat4 getNodeTransform(const tinygltf::Node& node);
     void computeNodeHierarchy(int nodeIndex, const glm::mat4& parentTransform);

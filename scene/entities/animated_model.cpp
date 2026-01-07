@@ -110,138 +110,133 @@ void AnimatedModel::computeNodeHierarchy(int nodeIndex, const glm::mat4& parentT
 }
 
 int AnimatedModel::findKeyframeIndex(const std::vector<float>& times, float animationTime) {
-    if (times.empty() || animationTime <= times[0]) return 0;
-    if (animationTime >= times.back()) return times.size() - 2;
+    int left = 0;
+    int right = times.size() - 1;
 
-    for (size_t i = 0; i < times.size() - 1; i++) {
-        if (animationTime >= times[i] && animationTime < times[i + 1]) {
-            return i;
+    while (left <= right) {
+        int mid = (left + right) / 2;
+
+        if (mid + 1 < times.size() && times[mid] <= animationTime && animationTime < times[mid + 1]) {
+            return mid;
+        }
+        else if (times[mid] > animationTime) {
+            right = mid - 1;
+        }
+        else {
+            left = mid + 1;
         }
     }
 
     return times.size() - 2;
 }
 
-glm::mat4 AnimatedModel::interpolateTransform(const AnimationSampler& sampler, float time, const std::string& path) {
-    if (sampler.inputTimes.empty() || sampler.outputValues.empty()) {
-        return glm::mat4(1.0f);
-    }
+void AnimatedModel::updateAnimation(std::vector<glm::mat4>& localTransforms, float time) {
+    if (!cachedModel || cachedModel->animationClips.empty()) return;
 
-    int keyframeIndex = findKeyframeIndex(sampler.inputTimes, time);
-    float t = (time - sampler.inputTimes[keyframeIndex]) /
-              (sampler.inputTimes[keyframeIndex + 1] - sampler.inputTimes[keyframeIndex]);
-    t = glm::clamp(t, 0.0f, 1.0f);
-
-    if (path == "translation") {
-        glm::vec3 start = glm::vec3(sampler.outputValues[keyframeIndex]);
-        glm::vec3 end = glm::vec3(sampler.outputValues[keyframeIndex + 1]);
-        glm::vec3 translation = glm::mix(start, end, t);
-        return glm::translate(glm::mat4(1.0f), translation);
-    }
-    else if (path == "rotation") {
-        glm::quat start = glm::quat(
-            sampler.outputValues[keyframeIndex].w,
-            sampler.outputValues[keyframeIndex].x,
-            sampler.outputValues[keyframeIndex].y,
-            sampler.outputValues[keyframeIndex].z
-        );
-        glm::quat end = glm::quat(
-            sampler.outputValues[keyframeIndex + 1].w,
-            sampler.outputValues[keyframeIndex + 1].x,
-            sampler.outputValues[keyframeIndex + 1].y,
-            sampler.outputValues[keyframeIndex + 1].z
-        );
-        glm::quat rotation = glm::slerp(start, end, t);
-        return glm::mat4_cast(rotation);
-    }
-    else if (path == "scale") {
-        glm::vec3 start = glm::vec3(sampler.outputValues[keyframeIndex]);
-        glm::vec3 end = glm::vec3(sampler.outputValues[keyframeIndex + 1]);
-        glm::vec3 scale = glm::mix(start, end, t);
-        return glm::scale(glm::mat4(1.0f), scale);
-    }
-
-    return glm::mat4(1.0f);
-}
-
-void AnimatedModel::updateAnimation(float time) {
-    if (!cachedModel || currentAnimationClip < 0 ||
-        currentAnimationClip >= cachedModel->animationClips.size()) {
-        return;
-    }
-
-    const auto& clip = cachedModel->animationClips[currentAnimationClip];
+    const auto& clip = cachedModel->animationClips[0];
     float animationTime = fmod(time, clip.duration);
 
-    for (size_t i = 0; i < cachedModel->model.nodes.size(); i++) {
-        cachedModel->localNodeTransforms[i] = getNodeTransform(cachedModel->model.nodes[i]);
-    }
+    for (size_t i = 0; i < clip.channels.size(); ++i) {
+        const auto& channel = clip.channels[i];
+        if (channel.samplerIndex < 0 || channel.samplerIndex >= clip.samplers.size()) {
+            continue;
+        }
 
-    for (const auto& channel : clip.channels) {
-        if (channel.samplerIndex >= 0 && channel.samplerIndex < clip.samplers.size()) {
-            const auto& sampler = clip.samplers[channel.samplerIndex];
-            glm::mat4 animatedTransform = interpolateTransform(sampler, animationTime, channel.targetPath);
+        const auto& sampler = clip.samplers[channel.samplerIndex];
 
-            if (channel.targetPath == "translation") {
-                cachedModel->localNodeTransforms[channel.targetNodeIndex][3] = animatedTransform[3];
-            }
-            else if (channel.targetPath == "rotation") {
-                glm::vec3 scale(
-                    glm::length(glm::vec3(cachedModel->localNodeTransforms[channel.targetNodeIndex][0])),
-                    glm::length(glm::vec3(cachedModel->localNodeTransforms[channel.targetNodeIndex][1])),
-                    glm::length(glm::vec3(cachedModel->localNodeTransforms[channel.targetNodeIndex][2]))
-                );
-                glm::vec3 translation = glm::vec3(cachedModel->localNodeTransforms[channel.targetNodeIndex][3]);
+        int keyframeIndex = findKeyframeIndex(sampler.inputTimes, animationTime);
+        float t = (animationTime - sampler.inputTimes[keyframeIndex]) /
+                  (sampler.inputTimes[keyframeIndex + 1] - sampler.inputTimes[keyframeIndex]);
 
-                cachedModel->localNodeTransforms[channel.targetNodeIndex] =
-                    glm::translate(glm::mat4(1.0f), translation) *
-                    animatedTransform *
-                    glm::scale(glm::mat4(1.0f), scale);
-            }
-            else if (channel.targetPath == "scale") {
-                glm::mat4 M = cachedModel->localNodeTransforms[channel.targetNodeIndex];
-                glm::vec3 translation = glm::vec3(M[3]);
-                glm::mat3 rotation = glm::mat3(M);
+        if (channel.targetPath == "translation") {
+            glm::vec3 translation0 = glm::vec3(sampler.outputValues[keyframeIndex]);
+            glm::vec3 translation1 = glm::vec3(sampler.outputValues[keyframeIndex + 1]);
+            glm::vec3 translation = translation0 + t * (translation1 - translation0);
+            localTransforms[channel.targetNodeIndex][3] = glm::vec4(translation, 1.0f);
+        }
+        else if (channel.targetPath == "rotation") {
+            glm::quat rotation0 = glm::quat(
+                sampler.outputValues[keyframeIndex].w,
+                sampler.outputValues[keyframeIndex].x,
+                sampler.outputValues[keyframeIndex].y,
+                sampler.outputValues[keyframeIndex].z
+            );
+            glm::quat rotation1 = glm::quat(
+                sampler.outputValues[keyframeIndex + 1].w,
+                sampler.outputValues[keyframeIndex + 1].x,
+                sampler.outputValues[keyframeIndex + 1].y,
+                sampler.outputValues[keyframeIndex + 1].z
+            );
+            glm::quat rotation = glm::slerp(rotation0, rotation1, t);
 
-                cachedModel->localNodeTransforms[channel.targetNodeIndex] =
-                    glm::translate(glm::mat4(1.0f), translation) *
-                    glm::mat4(rotation) *
-                    animatedTransform;
-            }
+            glm::vec3 scale(
+                glm::length(glm::vec3(localTransforms[channel.targetNodeIndex][0])),
+                glm::length(glm::vec3(localTransforms[channel.targetNodeIndex][1])),
+                glm::length(glm::vec3(localTransforms[channel.targetNodeIndex][2]))
+            );
+
+            glm::vec3 translation = glm::vec3(localTransforms[channel.targetNodeIndex][3]);
+
+            glm::mat4 R = glm::mat4_cast(rotation);
+            glm::mat4 S = glm::scale(glm::mat4(1.0f), scale);
+            glm::mat4 T = glm::mat4(1.0f);
+            T[3] = glm::vec4(translation, 1.0f);
+
+            localTransforms[channel.targetNodeIndex] = T * R * S;
+        }
+        else if (channel.targetPath == "scale") {
+            glm::vec3 scale0 = glm::vec3(sampler.outputValues[keyframeIndex]);
+            glm::vec3 scale1 = glm::vec3(sampler.outputValues[keyframeIndex + 1]);
+            glm::vec3 scale = scale0 + t * (scale1 - scale0);
+
+            glm::mat4 M = localTransforms[channel.targetNodeIndex];
+            glm::vec3 translation = glm::vec3(M[3]);
+            glm::mat3 rotation = glm::mat3(M);
+
+            localTransforms[channel.targetNodeIndex] =
+                glm::translate(glm::mat4(1.0f), translation) *
+                glm::mat4(rotation) *
+                glm::scale(glm::mat4(1.0f), scale);
         }
     }
 }
 
-void AnimatedModel::updateSkinning() {
-    if (!cachedModel || cachedModel->skinData.empty()) {
-        return;
-    }
+void AnimatedModel::computeGlobalNodeTransform(const tinygltf::Model& model,
+    const std::vector<glm::mat4>& localTransforms,
+    int nodeIndex, const glm::mat4& parentTransform,
+    std::vector<glm::mat4>& globalTransforms)
+{
+    glm::mat4 globalTransform = parentTransform * localTransforms[nodeIndex];
+    globalTransforms[nodeIndex] = globalTransform;
 
-    int rootNodeIndex = -1;
+    const tinygltf::Node &node = model.nodes[nodeIndex];
+    for (int childIndex : node.children) {
+        computeGlobalNodeTransform(model, localTransforms, childIndex, globalTransform, globalTransforms);
+    }
+}
+
+void AnimatedModel::updateSkinning(const std::vector<glm::mat4>& globalTransforms) {
+    if (!cachedModel || cachedModel->skinData.empty()) return;
+
+    glm::mat4 rootGlobal(1.0f);
+
     for (size_t i = 0; i < cachedModel->model.nodes.size(); i++) {
-        if (cachedModel->model.nodes[i].skin < 0) {
-            rootNodeIndex = i;
+        if (cachedModel->model.nodes[i].skin == 0) {
+            rootGlobal = globalTransforms[i];
             break;
         }
     }
 
-    if (rootNodeIndex < 0) {
-        rootNodeIndex = 0;
-    }
+    glm::mat4 invRoot = glm::inverse(rootGlobal);
 
-    glm::mat4 rootInverse = glm::inverse(cachedModel->globalNodeTransforms[rootNodeIndex]);
+    for (size_t i = 0; i < cachedModel->skinData.size(); ++i) {
+        auto& skin = cachedModel->skinData[i];
+        const tinygltf::Skin& gltfSkin = cachedModel->model.skins[i];
 
-    for (size_t skinIndex = 0; skinIndex < cachedModel->skinData.size(); skinIndex++) {
-        auto& skin = cachedModel->skinData[skinIndex];
-
-        for (size_t jointIndex = 0; jointIndex < skin.jointIndices.size(); jointIndex++) {
-            int nodeIndex = skin.jointIndices[jointIndex];
-            if (nodeIndex >= 0 && nodeIndex < cachedModel->globalNodeTransforms.size()) {
-                skin.jointMatrices[jointIndex] =
-                    rootInverse *
-                    cachedModel->globalNodeTransforms[nodeIndex] *
-                    skin.inverseBindMatrices[jointIndex];
-            }
+        for (size_t j = 0; j < gltfSkin.joints.size(); ++j) {
+            int jointNodeIndex = gltfSkin.joints[j];
+            skin.globalJointTransforms[j] = globalTransforms[jointNodeIndex];
+            skin.jointMatrices[j] = invRoot * skin.globalJointTransforms[j] * skin.inverseBindMatrices[j];
         }
     }
 }
@@ -254,17 +249,30 @@ void AnimatedModel::updateNodeTransforms() {
     }
 }
 
-void AnimatedModel::update(float deltaTime) {
-    if (!isPlaying || !cachedModel) return;
+void AnimatedModel::update(float time) {
+    if (!isPlaying || !cachedModel || cachedModel->animationClips.empty()) return;
 
-    currentTime += deltaTime * playbackSpeed;
+    currentTime += time;
 
-    if (!cachedModel->animationClips.empty()) {
-        updateAnimation(currentTime);
+    const auto& clip = cachedModel->animationClips[0];
+
+    std::vector<glm::mat4> localTransforms(cachedModel->model.nodes.size());
+    std::vector<glm::mat4> globalTransforms(cachedModel->model.nodes.size());
+
+    for (size_t i = 0; i < cachedModel->model.nodes.size(); ++i) {
+        localTransforms[i] = getNodeTransform(cachedModel->model.nodes[i]);
     }
 
-    updateNodeTransforms();
-    updateSkinning();
+    updateAnimation(localTransforms, currentTime);
+
+    for (int root : cachedModel->model.scenes[cachedModel->model.defaultScene].nodes) {
+        computeGlobalNodeTransform(cachedModel->model, localTransforms, root, glm::mat4(1.0f), globalTransforms);
+    }
+
+    updateSkinning(globalTransforms);
+
+    cachedModel->localNodeTransforms = localTransforms;
+    cachedModel->globalNodeTransforms = globalTransforms;
 }
 
 std::shared_ptr<AnimatedModel::ModelCache> AnimatedModel::loadModelToCache(const char* filename) {
@@ -349,6 +357,7 @@ std::shared_ptr<AnimatedModel::ModelCache> AnimatedModel::loadModelToCache(const
 
         skinData.jointIndices = skin.joints;
         skinData.jointMatrices.resize(skin.joints.size(), glm::mat4(1.0f));
+        skinData.globalJointTransforms.resize(skin.joints.size(), glm::mat4(1.0f));
 
         cache->skinData.push_back(skinData);
     }
@@ -535,8 +544,16 @@ bool AnimatedModel::loadModel(const char* filename) {
     if (!cachedModel->animationClips.empty()) {
         currentAnimationClip = 0;
         currentTime = 0.0f;
-        updateNodeTransforms();
-        updateSkinning();
+
+        for (size_t i = 0; i < cachedModel->model.nodes.size(); ++i) {
+            cachedModel->localNodeTransforms[i] = getNodeTransform(cachedModel->model.nodes[i]);
+        }
+
+        for (int root : cachedModel->model.scenes[cachedModel->model.defaultScene].nodes) {
+            computeGlobalNodeTransform(cachedModel->model, cachedModel->localNodeTransforms,
+                                     root, glm::mat4(1.0f), cachedModel->globalNodeTransforms);
+        }
+        updateSkinning(cachedModel->globalNodeTransforms);
     }
 
     return true;

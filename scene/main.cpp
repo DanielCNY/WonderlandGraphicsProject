@@ -294,6 +294,7 @@ int main(void)
 
 	// FPS tracking
 	double lastTime = glfwGetTime();
+	double lastFrameTime = glfwGetTime();
 	int frameCount = 0;
 
     // Camera setup
@@ -315,6 +316,8 @@ int main(void)
         glm::mat4 vp = projectionMatrix * viewMatrix;
 
     	double currentTime = glfwGetTime();
+    	float deltaTime = static_cast<float>(currentTime - lastFrameTime);
+    	lastFrameTime = currentTime;
     	frameCount++;
 
     	// Update FPS every second
@@ -335,7 +338,7 @@ int main(void)
     	glm::mat4 skyboxView = glm::mat4(glm::mat3(viewMatrix));
     	skybox.render(projectionMatrix * skyboxView);
 
-    	worldManager.update(eye_center);
+    	worldManager.update(eye_center, deltaTime);
     	worldManager.render(vp, lightPosition, lightIntensity, ambientLight, eye_center);
 
         // Swap buffers

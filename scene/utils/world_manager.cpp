@@ -19,9 +19,13 @@ int WorldManager::getChunkCoord(float worldCoord) {
     return static_cast<int>(std::round(worldCoord / Chunk::SIZE));
 }
 
-void WorldManager::update(const glm::vec3& cameraPos) {
+void WorldManager::update(const glm::vec3& cameraPos, const float& deltaTime) {
     int newCenterChunkX = getChunkCoord(cameraPos.x);
     int newCenterChunkZ = getChunkCoord(cameraPos.z);
+
+    for (auto& pair : chunkMap) {
+        pair.second->update(deltaTime);
+    }
 
     if (!initialized || newCenterChunkX != centerChunkX || newCenterChunkZ != centerChunkZ) {
         centerChunkX = newCenterChunkX;
